@@ -43,6 +43,8 @@ export default function NewCampaignPage() {
   const [abEnabled, setAbEnabled] = useState(false);
   const [subjectB, setSubjectB] = useState("");
   const [bodyB, setBodyB] = useState("");
+  const [fromName, setFromName] = useState("CloudSheer");
+  const [fromEmail, setFromEmail] = useState("solutions@cloudsheer.com");
   const [previewRowIndex, setPreviewRowIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -108,6 +110,9 @@ export default function NewCampaignPage() {
             ? { subjectTemplateB: subjectB }
             : {}),
           ...(abEnabled && bodyB.trim() ? { bodyTemplateB: bodyB } : {}),
+          ...(fromEmail.trim()
+            ? { fromEmail: fromEmail.trim(), fromName: fromName.trim() }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -274,6 +279,30 @@ export default function NewCampaignPage() {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-neutral-400">
+                  From name
+                </label>
+                <input
+                  className={inputClass}
+                  placeholder="Shivam from CloudSheer"
+                  value={fromName}
+                  onChange={(e) => setFromName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-neutral-400">
+                  From email (must be @cloudsheer.com)
+                </label>
+                <input
+                  className={inputClass}
+                  placeholder="solutions@cloudsheer.com"
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                />
+              </div>
+            </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-neutral-400">
                 Subject
@@ -407,7 +436,9 @@ export default function NewCampaignPage() {
                   {renderedSubject || "(no subject)"}
                 </p>
                 <p className="mt-1 text-xs text-neutral-500">
-                  to {previewRow[preview.emailColumn ?? ""] ?? ""}
+                  from {fromName ? `${fromName} ` : ""}&lt;
+                  {fromEmail || "default sender"}&gt; · to{" "}
+                  {previewRow[preview.emailColumn ?? ""] ?? ""}
                 </p>
               </div>
               <div className="whitespace-pre-wrap px-5 py-5 text-sm leading-relaxed">

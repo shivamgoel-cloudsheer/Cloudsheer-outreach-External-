@@ -108,6 +108,8 @@ export const campaigns = pgTable(
     // Optional A/B variant; when set, recipients are split 50/50
     subjectTemplateB: text("subject_template_b"),
     bodyTemplateB: text("body_template_b"),
+    // Per-campaign sender ("Name <email@domain>"); falls back to RESEND_FROM
+    fromAddress: text("from_address"),
     status: text("status").$type<CampaignStatus>().notNull().default("draft"),
     total: integer("total").notNull().default(0),
     sentCount: integer("sent_count").notNull().default(0),

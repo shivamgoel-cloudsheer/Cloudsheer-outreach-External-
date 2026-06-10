@@ -156,7 +156,7 @@ export async function processUser(userId: string): Promise<ProcessResult> {
             const body = renderTemplate(step.bodyTemplate, r.rowData);
             const { html, text } = buildEmailBodies(body, unsubscribeUrl);
             return {
-              from: process.env.RESEND_FROM!,
+              from: campaign.fromAddress ?? process.env.RESEND_FROM!,
               to: [r.email],
               ...(replyTo ? { replyTo } : {}),
               subject,

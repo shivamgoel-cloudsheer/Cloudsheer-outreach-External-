@@ -19,6 +19,8 @@ const bodySchema = z.object({
   bodyTemplate: z.string().min(1).max(100_000),
   subjectTemplateB: z.string().max(500).optional(),
   bodyTemplateB: z.string().max(100_000).optional(),
+  fromName: z.string().max(100).optional(),
+  fromEmail: z.string().email().max(200).optional(),
 });
 
 export async function POST(request: Request) {
@@ -39,6 +41,14 @@ export async function POST(request: Request) {
   const subjectTemplateB = parsed.data.subjectTemplateB?.trim() || null;
   const bodyTemplateB = parsed.data.bodyTemplateB?.trim() || null;
   const hasVariantB = !!(subjectTemplateB || bodyTemplateB);
+
+  const fromEmail = parsed.data.fromEmail?.trim() || null;
+  const fromName = parsed.data.fromName?.trim().replace(/[<>]/g, "") || null;
+  const fromAddress = fromEmail
+    ? fromName
+      ? `${fromName} <${fromEmail}>`
+      : fromEmail
+    : null;
 
   const sheetId = parseSheetUrl(sheetUrl);
   if (!sheetId) {
@@ -103,6 +113,7 @@ export async function POST(request: Request) {
         bodyTemplate,
         subjectTemplateB,
         bodyTemplateB,
+        fromAddress,
         status: "draft",
         total: validRows.length,
       })

@@ -170,7 +170,7 @@ function buildPayload(
   const { html, text } = buildEmailBodies(renderedBody, unsubscribeUrl);
 
   return {
-    from: process.env.RESEND_FROM!,
+    from: campaign.fromAddress ?? process.env.RESEND_FROM!,
     to: [r.email],
     ...(replyTo ? { replyTo } : {}),
     subject,
