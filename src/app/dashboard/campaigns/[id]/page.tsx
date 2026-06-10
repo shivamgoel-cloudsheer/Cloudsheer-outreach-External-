@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CalendarClock,
@@ -67,6 +68,7 @@ export default function CampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [data, setData] = useState<CampaignStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -223,6 +225,27 @@ export default function CampaignPage({
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add step");
+    }
+  }
+
+  async function deleteCampaign() {
+    const scheduled = data?.counts.scheduled ?? 0;
+    const message =
+      scheduled > 0
+        ? `Delete this campaign? ${scheduled} still-queued email${scheduled === 1 ? "" : "s"} will be cancelled. This cannot be undone.`
+        : "Delete this campaign and all its tracking data? This cannot be undone.";
+    if (!window.confirm(message)) return;
+
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to delete campaign");
+      router.push("/dashboard");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete campaign");
+      setSending(false);
     }
   }
 
@@ -632,6 +655,15 @@ export default function CampaignPage({
               </button>
             </div>
           )}
+
+          <button
+            onClick={deleteCampaign}
+            disabled={sending}
+            title="Delete campaign"
+            className="rounded-xl border border-neutral-800 p-2.5 text-neutral-500 transition hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+          >
+            <Trash2 size={15} />
+          </button>
         </div>
       </div>
 
