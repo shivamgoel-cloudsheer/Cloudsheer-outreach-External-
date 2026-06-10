@@ -1,7 +1,8 @@
 import { Webhook } from "svix";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  campaigns,
   emailEvents,
   recipients,
   unsubscribes,
@@ -138,6 +139,35 @@ export async function POST(request: Request) {
           : {}),
       })
       .where(eq(recipients.id, recipient.id));
+  }
+
+  // Once the last scheduled email has actually gone out, the campaign
+  // itself moves from scheduled to sent
+  if (
+    newStatus &&
+    recipient.status === "scheduled" &&
+    STATUS_RANK[newStatus] > STATUS_RANK.scheduled
+  ) {
+    const [{ remaining }] = await db
+      .select({ remaining: sql<number>`count(*)::int` })
+      .from(recipients)
+      .where(
+        and(
+          eq(recipients.campaignId, recipient.campaignId),
+          inArray(recipients.status, ["pending", "scheduled"])
+        )
+      );
+    if (remaining === 0) {
+      await db
+        .update(campaigns)
+        .set({ status: "sent", sentAt: new Date() })
+        .where(
+          and(
+            eq(campaigns.id, recipient.campaignId),
+            eq(campaigns.status, "scheduled")
+          )
+        );
+    }
   }
 
   // Hard bounces and complaints go straight onto the suppression list
