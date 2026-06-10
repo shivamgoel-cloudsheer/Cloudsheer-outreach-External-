@@ -11,6 +11,7 @@ import {
   isValidTimeZone,
   zonedTimeToUtc,
 } from "@/lib/timezone";
+import { computeStaggeredTimes, type StaggerConfig } from "@/lib/stagger";
 
 export const maxDuration = 300;
 
@@ -30,11 +31,23 @@ const bodySchema = z.object({
   localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   localTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   fallbackTimeZone: z.string().optional(),
+  // Drip mode: spread sends out instead of one burst
+  stagger: z
+    .object({
+      gapMinutes: z.number().min(1).max(240),
+      dailyCap: z.number().int().min(1).max(2000),
+      windowStart: z.string().regex(/^\d{2}:\d{2}$/),
+      windowEnd: z.string().regex(/^\d{2}:\d{2}$/),
+      skipWeekends: z.boolean(),
+      timeZone: z.string(),
+    })
+    .optional(),
 });
 
 type ScheduleConfig =
   | { mode: "fixed"; at: Date }
-  | { mode: "local"; date: string; time: string; fallbackTimeZone: string };
+  | { mode: "local"; date: string; time: string; fallbackTimeZone: string }
+  | { mode: "stagger"; base: Date; cfg: StaggerConfig };
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,7 +73,23 @@ export async function POST(
   let schedule: ScheduleConfig | null = null;
   let displayTime: Date | null = null;
 
-  if (parsed.data.localDate && parsed.data.localTime) {
+  if (parsed.data.stagger) {
+    const cfg = parsed.data.stagger;
+    if (!isValidTimeZone(cfg.timeZone)) {
+      return Response.json({ error: "Invalid timezone" }, { status: 400 });
+    }
+    if (cfg.windowStart >= cfg.windowEnd) {
+      return Response.json(
+        { error: "Send window start must be before its end" },
+        { status: 400 }
+      );
+    }
+    const base = parsed.data.scheduledAt
+      ? new Date(parsed.data.scheduledAt)
+      : new Date();
+    schedule = { mode: "stagger", base, cfg };
+    displayTime = base;
+  } else if (parsed.data.localDate && parsed.data.localTime) {
     const fallbackTimeZone = parsed.data.fallbackTimeZone ?? "UTC";
     if (!isValidTimeZone(fallbackTimeZone)) {
       return Response.json({ error: "Invalid timezone" }, { status: 400 });
@@ -379,10 +408,34 @@ async function sendIndividually(
   let scheduledCount = 0;
   let anyFailed = false;
 
+  const MAX_HORIZON_MS = 29 * 24 * 60 * 60 * 1000;
+  const staggerTimes =
+    schedule.mode === "stagger"
+      ? computeStaggeredTimes(toSend.length, schedule.base, schedule.cfg)
+      : null;
+
   for (let i = 0; i < toSend.length; i++) {
     const r = toSend[i];
     const at =
-      schedule.mode === "fixed" ? schedule.at : resolveRecipientTime(schedule, r);
+      schedule.mode === "fixed"
+        ? schedule.at
+        : schedule.mode === "stagger"
+          ? staggerTimes![i]
+          : resolveRecipientTime(schedule, r);
+
+    if (at.getTime() > Date.now() + MAX_HORIZON_MS) {
+      anyFailed = true;
+      await db
+        .update(recipients)
+        .set({
+          status: "failed",
+          error:
+            "Beyond Resend's 30-day scheduling window. Raise the daily cap or shorten the gap.",
+        })
+        .where(eq(recipients.id, r.id));
+      continue;
+    }
+
     const payload = buildPayload(campaign, r, at);
 
     let lastError: string | null = null;
