@@ -1,0 +1,153 @@
+import {
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  jsonb,
+  uniqueIndex,
+  index,
+  primaryKey,
+  uuid,
+} from "drizzle-orm/pg-core";
+import type { AdapterAccountType } from "next-auth/adapters";
+
+// ---------------------------------------------------------------------------
+// Auth.js adapter tables (shapes required by @auth/drizzle-adapter)
+// ---------------------------------------------------------------------------
+
+export const users = pgTable("user", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name"),
+  email: text("email").unique(),
+  emailVerified: timestamp("emailVerified", { mode: "date" }),
+  image: text("image"),
+});
+
+export const accounts = pgTable(
+  "account",
+  {
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").$type<AdapterAccountType>().notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("providerAccountId").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (account) => [
+    primaryKey({ columns: [account.provider, account.providerAccountId] }),
+  ]
+);
+
+export const sessions = pgTable("session", {
+  sessionToken: text("sessionToken").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires", { mode: "date" }).notNull(),
+});
+
+export const verificationTokens = pgTable(
+  "verificationToken",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires", { mode: "date" }).notNull(),
+  },
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
+);
+
+// ---------------------------------------------------------------------------
+// App tables
+// ---------------------------------------------------------------------------
+
+export type CampaignStatus = "draft" | "sending" | "sent" | "failed";
+
+export type RecipientStatus =
+  | "pending"
+  | "suppressed"
+  | "sent"
+  | "delivered"
+  | "opened"
+  | "clicked"
+  | "bounced"
+  | "complained"
+  | "failed";
+
+export const campaigns = pgTable(
+  "campaign",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sheetId: text("sheet_id").notNull(),
+    sheetUrl: text("sheet_url").notNull(),
+    subjectTemplate: text("subject_template").notNull(),
+    bodyTemplate: text("body_template").notNull(),
+    status: text("status").$type<CampaignStatus>().notNull().default("draft"),
+    total: integer("total").notNull().default(0),
+    sentCount: integer("sent_count").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    sentAt: timestamp("sent_at"),
+  },
+  (t) => [index("campaign_user_idx").on(t.userId)]
+);
+
+export const recipients = pgTable(
+  "recipient",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name"),
+    // Full sheet row snapshot, used for {{placeholder}} rendering
+    rowData: jsonb("row_data").$type<Record<string, string>>().notNull(),
+    // Mapping key for Resend webhook events
+    resendEmailId: text("resend_email_id"),
+    status: text("status").$type<RecipientStatus>().notNull().default("pending"),
+    openedAt: timestamp("opened_at"),
+    clickedAt: timestamp("clicked_at"),
+    error: text("error"),
+    unsubscribeToken: text("unsubscribe_token").notNull().unique(),
+  },
+  (t) => [
+    uniqueIndex("recipient_resend_email_id_idx").on(t.resendEmailId),
+    index("recipient_campaign_idx").on(t.campaignId),
+  ]
+);
+
+export const emailEvents = pgTable(
+  "email_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipientId: uuid("recipient_id").references(() => recipients.id, {
+      onDelete: "set null",
+    }),
+    resendEmailId: text("resend_email_id").notNull(),
+    type: text("type").notNull(),
+    payload: jsonb("payload"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  // Idempotency: each (email, event type) pair is recorded once
+  (t) => [uniqueIndex("email_event_unique_idx").on(t.resendEmailId, t.type)]
+);
+
+export const unsubscribes = pgTable("unsubscribe", {
+  // Always stored lowercased
+  email: text("email").primaryKey(),
+  userId: text("user_id"),
+  source: text("source").notNull(), // link | one_click | complaint | bounce
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
