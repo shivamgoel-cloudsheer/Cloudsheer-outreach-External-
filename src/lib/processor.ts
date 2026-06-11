@@ -222,8 +222,6 @@ export async function processUser(userId: string): Promise<ProcessResult> {
         else bySender.set(sender, [d]);
       }
 
-      const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-
       for (const [sender, items] of bySender) {
         // Oldest-due first.
         items.sort(
@@ -269,14 +267,12 @@ export async function processUser(userId: string): Promise<ProcessResult> {
           const dayKey = tzDateKey(at, cfg.timeZone);
           if ((committed.get(dayKey) ?? 0) >= capForDay(dayKey)) continue;
 
-          const unsubscribeUrl = `${appUrl}/u/${r.unsubscribeToken}`;
           const subject = renderTemplate(step.subjectTemplate, r.rowData);
           const body = renderTemplate(step.bodyTemplate, r.rowData);
-          // Plain-text, no List-Unsubscribe header (see send route) so
-          // follow-ups land in Primary too.
+          // Plain-text, no unsubscribe link/header (see send route) so
+          // follow-ups land in Primary too. Opt-out is reply-based.
           const { text } = buildEmailBodies(
             body,
-            unsubscribeUrl,
             mailingAddressFor(campaign.fromAddress),
             campaign.signature ?? signatureFor(campaign.fromAddress)
           );

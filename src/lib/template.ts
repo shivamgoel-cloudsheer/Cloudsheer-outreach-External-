@@ -42,15 +42,21 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Reply-based opt-out: reads like a human note, not a broadcast. A reply of
+// any kind is caught by reply detection and stops the sequence. The postal
+// address stays as one quiet line for CAN-SPAM.
+const OPT_OUT_LINE = "If this isn't relevant, just reply and I'll stop reaching out.";
+
 /**
  * Builds the HTML and plain-text bodies for an email. If the rendered body
  * already looks like HTML it is passed through; otherwise newlines become
- * <br/> tags. An unsubscribe footer plus the sender's physical postal address
- * (a CAN-SPAM requirement) is always appended.
+ * <br/> tags. The signature, a quiet reply-based opt-out line, and the
+ * sender's physical postal address (CAN-SPAM) are appended. No unsubscribe
+ * link - that link plus the "unsubscribe here" wording is a bulk-mail signal,
+ * and the link domain (the app host) mismatching the sender domain hurts more.
  */
 export function buildEmailBodies(
   renderedBody: string,
-  unsubscribeUrl: string,
   mailingAddress: string,
   signature?: string | null
 ): { html: string; text: string } {
@@ -69,17 +75,16 @@ export function buildEmailBodies(
   <body style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #1a1a1a;">
     <div>${htmlBody}</div>
     ${htmlSig}
-    <p style="margin-top: 32px; font-size: 12px; color: #888888;">
-      If you'd prefer not to receive these emails, you can
-      <a href="${unsubscribeUrl}" style="color: #888888;">unsubscribe here</a>.
-    </p>
-    <p style="margin-top: 8px; font-size: 12px; color: #aaaaaa;">${escapeHtml(
+    <p style="margin-top: 24px; font-size: 12px; color: #999999;">${escapeHtml(
+      OPT_OUT_LINE
+    )}</p>
+    <p style="margin-top: 4px; font-size: 12px; color: #aaaaaa;">${escapeHtml(
       mailingAddress
     )}</p>
   </body>
 </html>`;
 
-  const text = `${renderedBody}${sig ? `\n\n${sig}` : ""}\n\n----\nIf you'd prefer not to receive these emails, unsubscribe here: ${unsubscribeUrl}\n${mailingAddress}`;
+  const text = `${renderedBody}${sig ? `\n\n${sig}` : ""}\n\n${OPT_OUT_LINE}\n${mailingAddress}`;
 
   return { html, text };
 }

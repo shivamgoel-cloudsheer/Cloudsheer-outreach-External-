@@ -403,7 +403,7 @@ export default function NewCampaignPage() {
               />
               <p className="mt-1 text-xs text-neutral-600">
                 Added automatically to every email (including follow-ups), above
-                the unsubscribe footer. Leave blank for no signature.
+                the footer. Leave blank for no signature.
               </p>
             </div>
             <div>
@@ -441,7 +441,8 @@ export default function NewCampaignPage() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-neutral-600">
-                An unsubscribe link is appended to every email automatically.
+                A reply-based opt-out line and your postal address are appended
+                automatically.
               </p>
             </div>
 
@@ -567,8 +568,11 @@ export default function NewCampaignPage() {
                 )}
               </div>
               <div className="border-t border-neutral-100 px-5 py-3 text-xs text-neutral-400">
-                If you&apos;d prefer not to receive these emails, you can{" "}
-                <span className="underline">unsubscribe here</span>.
+                If this isn&apos;t relevant, just reply and I&apos;ll stop
+                reaching out.
+                <br />
+                CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York
+                11234, USA
               </div>
             </div>
 

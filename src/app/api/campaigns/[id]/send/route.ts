@@ -201,20 +201,16 @@ function buildPayload(
   r: Recipient,
   scheduledAt: Date | null
 ) {
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const from = campaign.fromAddress ?? process.env.RESEND_FROM!;
   // Replies go back to the address the email was sent from.
   const replyTo = replyToFor(campaign.fromAddress);
-  const unsubscribeUrl = `${appUrl}/u/${r.unsubscribeToken}`;
   const templates = templatesFor(campaign, r);
   const subject = renderTemplate(templates.subject, r.rowData);
   const renderedBody = renderTemplate(templates.body, r.rowData);
-  // Plain-text only and no List-Unsubscribe headers: cold 1:1 mail lands in
-  // Primary, not Promotions. The opt-out is the plain footer link (still
-  // automated via the suppression list); the postal address stays for CAN-SPAM.
+  // Plain-text, no List-Unsubscribe header, no unsubscribe link: cold 1:1 mail
+  // lands in Primary. Opt-out is reply-based; the postal address stays.
   const { text } = buildEmailBodies(
     renderedBody,
-    unsubscribeUrl,
     mailingAddressFor(campaign.fromAddress),
     campaign.signature ?? signatureFor(campaign.fromAddress)
   );
