@@ -20,19 +20,19 @@ export const SENDERS: Sender[] = [
   {
     name: "Shubham",
     email: "shubham@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, [STREET ADDRESS], Brooklyn, NY [ZIP], USA",
+    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
     signature: `Regards,\nShubham\n${COMPANY}`,
   },
   {
     name: "Bharat",
     email: "bharat@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, [STREET ADDRESS], Brooklyn, NY [ZIP], USA",
+    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
     signature: `Regards,\nBharat\n${COMPANY}`,
   },
   {
     name: "Tushar",
     email: "tushar@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, [STREET ADDRESS], Brooklyn, NY [ZIP], USA",
+    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
     signature: `Regards,\nTushar\n${COMPANY}`,
   },
 ];
@@ -52,7 +52,7 @@ export function defaultSignatureFor(name: string): string {
 /** Fallback address for the default RESEND_FROM sender (set MAILING_ADDRESS to override). */
 const DEFAULT_MAILING_ADDRESS =
   process.env.MAILING_ADDRESS ??
-  "CloudSheer Consulting, [STREET ADDRESS], Brooklyn, NY [ZIP], USA";
+  "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA";
 
 /** Pulls the bare email out of a "Name <email@domain>" or plain address. */
 export function emailFromAddress(fromAddress: string): string {
