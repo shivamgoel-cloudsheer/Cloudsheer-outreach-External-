@@ -54,6 +54,30 @@ export function zonedTimeToUtc(
   return new Date(utc);
 }
 
+/** The UTC offset (in minutes) of a timezone at a given instant. */
+export function tzOffsetMinutes(timeZone: string, at: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second")
+  );
+  return Math.round((asUtc - at.getTime()) / 60000);
+}
+
 /** The calendar day ("YYYY-MM-DD") that an instant falls on in a timezone. */
 export function tzDateKey(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {

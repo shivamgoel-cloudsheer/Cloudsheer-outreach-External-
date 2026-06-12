@@ -13,10 +13,15 @@ import { getValidAccessToken } from "@/lib/google";
 import { getResend } from "@/lib/resend";
 import { writeStatusColumn } from "@/lib/sheets";
 import { buildEmailBodies, renderTemplate } from "@/lib/template";
-import { computeStaggeredTimes, type StaggerConfig } from "@/lib/stagger";
+import {
+  computeStaggeredTimes,
+  computeStaggeredTimesByZone,
+  type StaggerConfig,
+} from "@/lib/stagger";
 import { getSenderCommitments } from "@/lib/senderBudget";
 import { capForDayFn, WARMUP_WINDOW_DAYS } from "@/lib/warmup";
-import { tzDateKey } from "@/lib/timezone";
+import { tzDateKey, tzOffsetMinutes } from "@/lib/timezone";
+import { resolveRecipientZone } from "@/lib/geo";
 import { replyToFor, signatureFor } from "@/lib/senders";
 
 const ACTIVE_STATUSES = ["sent", "delivered", "opened", "clicked"] as const;
@@ -249,15 +254,34 @@ export async function processUser(userId: string): Promise<ProcessResult> {
           startDayKey,
           warm
         );
-        const times = computeStaggeredTimes(items.length, new Date(), cfg, {
-          committedByDay: byDay,
-          capForDay,
-        });
+        // Recipient-local scheduling sorts east-to-west and places each in its
+        // own timezone window; otherwise a single window in cfg.timeZone.
+        let order = items;
+        let times: Date[];
+        if (cfg.perRecipientTimeZone) {
+          const withTz = items.map((it) => ({
+            it,
+            tz: resolveRecipientZone(it.recipient.rowData, cfg.timeZone),
+          }));
+          withTz.sort((a, b) => tzOffsetMinutes(b.tz) - tzOffsetMinutes(a.tz));
+          order = withTz.map((x) => x.it);
+          times = computeStaggeredTimesByZone(
+            withTz.map((x) => x.tz),
+            new Date(),
+            cfg,
+            { committedByDay: byDay, capForDay }
+          );
+        } else {
+          times = computeStaggeredTimes(items.length, new Date(), cfg, {
+            committedByDay: byDay,
+            capForDay,
+          });
+        }
         // Running tally so the per-sender cap is hard-enforced at send time.
         const committed = new Map(byDay);
 
-        for (let i = 0; i < items.length; i++) {
-          const { campaign, step, recipient: r } = items[i];
+        for (let i = 0; i < order.length; i++) {
+          const { campaign, step, recipient: r } = order[i];
           const at = times[i];
           // Past Resend's 30-day window: leave it for a future run.
           if (at.getTime() > now + MAX_HORIZON_MS) continue;

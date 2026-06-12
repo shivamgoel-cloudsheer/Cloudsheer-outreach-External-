@@ -80,6 +80,7 @@ export default function CampaignPage({
   const [windowEnd, setWindowEnd] = useState("17:00");
   const [skipWeekends, setSkipWeekends] = useState(true);
   const [warmup, setWarmup] = useState(true);
+  const [recipientLocalTz, setRecipientLocalTz] = useState(false);
   const [filter, setFilter] = useState<string | null>(null);
   const [showAddStep, setShowAddStep] = useState(false);
   const [stepDelay, setStepDelay] = useState(3);
@@ -126,6 +127,7 @@ export default function CampaignPage({
           windowEnd,
           skipWeekends,
           warmup,
+          perRecipientTimeZone: recipientLocalTz,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
       };
@@ -492,6 +494,19 @@ export default function CampaignPage({
                           className="h-3.5 w-3.5 rounded accent-sky-500"
                         />
                         Warm-up new senders (ramp up to the cap)
+                      </label>
+                      <label
+                        className="flex cursor-pointer items-center gap-2 text-xs text-neutral-400"
+                        title="Each recipient is sent inside their own country's business hours, read from a Country or Timezone column in your sheet (keep that column included)"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={recipientLocalTz}
+                          onChange={(e) => setRecipientLocalTz(e.target.checked)}
+                          className="h-3.5 w-3.5 rounded accent-sky-500"
+                        />
+                        Send in each recipient&apos;s local time (Country/Timezone
+                        column)
                       </label>
                       <p className="text-xs text-amber-400/80">
                         Sends happen only inside the window. A start time

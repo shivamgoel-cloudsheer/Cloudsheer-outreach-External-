@@ -103,6 +103,7 @@ export type StoredStaggerConfig = {
   skipWeekends: boolean;
   timeZone: string;
   warmup: boolean;
+  perRecipientTimeZone?: boolean;
 };
 
 export const campaigns = pgTable(

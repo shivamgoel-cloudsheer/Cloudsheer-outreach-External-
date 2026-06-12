@@ -11,8 +11,13 @@ import {
 } from "@/db/schema";
 import { getResend } from "@/lib/resend";
 import { buildEmailBodies, renderTemplate } from "@/lib/template";
-import { isValidTimeZone, tzDateKey } from "@/lib/timezone";
-import { computeStaggeredTimes, type StaggerConfig } from "@/lib/stagger";
+import { isValidTimeZone, tzDateKey, tzOffsetMinutes } from "@/lib/timezone";
+import {
+  computeStaggeredTimes,
+  computeStaggeredTimesByZone,
+  type StaggerConfig,
+} from "@/lib/stagger";
+import { resolveRecipientZone } from "@/lib/geo";
 import { getSenderCommitments } from "@/lib/senderBudget";
 import { capForDayFn, WARMUP_WINDOW_DAYS } from "@/lib/warmup";
 import { replyToFor, signatureFor } from "@/lib/senders";
@@ -55,6 +60,7 @@ const bodySchema = z.object({
       skipWeekends: z.boolean(),
       timeZone: z.string(),
       warmup: z.boolean().optional(),
+      perRecipientTimeZone: z.boolean().optional(),
     })
     .optional(),
 });
@@ -68,6 +74,7 @@ function toStored(cfg: StaggerConfig): StoredStaggerConfig {
     skipWeekends: cfg.skipWeekends,
     timeZone: cfg.timeZone,
     warmup: cfg.warmup ?? true,
+    perRecipientTimeZone: cfg.perRecipientTimeZone ?? false,
   };
 }
 
@@ -325,10 +332,30 @@ async function sendIndividually(
     startDayKey,
     warm
   );
-  const staggerTimes = computeStaggeredTimes(toSend.length, schedule.base, cfg, {
-    committedByDay: byDay,
-    capForDay,
-  });
+  // Send order + per-recipient times. With per-recipient timezones we sort
+  // east-to-west so each lands in their local morning and the clock advances
+  // monotonically; otherwise keep the original order.
+  let order = toSend;
+  let staggerTimes: Date[];
+  if (cfg.perRecipientTimeZone) {
+    const withTz = toSend.map((r) => ({
+      r,
+      tz: resolveRecipientZone(r.rowData, cfg.timeZone),
+    }));
+    withTz.sort((a, b) => tzOffsetMinutes(b.tz) - tzOffsetMinutes(a.tz));
+    order = withTz.map((x) => x.r);
+    staggerTimes = computeStaggeredTimesByZone(
+      withTz.map((x) => x.tz),
+      schedule.base,
+      cfg,
+      { committedByDay: byDay, capForDay }
+    );
+  } else {
+    staggerTimes = computeStaggeredTimes(toSend.length, schedule.base, cfg, {
+      committedByDay: byDay,
+      capForDay,
+    });
+  }
 
   // Running per-day tally (seeded from existing commitments) so the cap is
   // hard-enforced right before each send, not only inside the allocator.
@@ -343,8 +370,8 @@ async function sendIndividually(
       .where(eq(campaigns.id, campaign.id));
   }
 
-  for (let i = 0; i < toSend.length; i++) {
-    const r = toSend[i];
+  for (let i = 0; i < order.length; i++) {
+    const r = order[i];
     // Heartbeat so the cron reconciler can tell a live run from a dead one.
     if (i % 15 === 0) {
       await db
@@ -420,7 +447,7 @@ async function sendIndividually(
         .where(eq(recipients.id, r.id));
     }
 
-    if (i < toSend.length - 1) {
+    if (i < order.length - 1) {
       await sleep(DELAY_BETWEEN_SINGLE_SENDS_MS);
     }
   }

@@ -1,4 +1,4 @@
-import { zonedTimeToUtc } from "./timezone";
+import { tzDateKey, zonedTimeToUtc } from "./timezone";
 
 export type StaggerConfig = {
   gapMinutes: number; // average gap between emails (jittered ±25%)
@@ -8,6 +8,9 @@ export type StaggerConfig = {
   skipWeekends: boolean;
   timeZone: string;
   warmup?: boolean; // ramp a new sender up to the cap over its first weeks
+  // Place each send inside the recipient's own timezone window (from a Country
+  // or Timezone sheet column) instead of the single cfg.timeZone window.
+  perRecipientTimeZone?: boolean;
 };
 
 export type StaggerOptions = {
@@ -38,25 +41,27 @@ function partsInZone(t: number, timeZone: string) {
   };
 }
 
-function nextDayWindowStart(t: number, cfg: StaggerConfig): number {
-  const p = partsInZone(t + 24 * 60 * 60 * 1000, cfg.timeZone);
-  return zonedTimeToUtc(p.date, cfg.windowStart, cfg.timeZone)!.getTime();
+// Window helpers take the timezone explicitly so the same logic serves the
+// single-zone allocator (cfg.timeZone) and the per-recipient one (each tz).
+function nextDayWindowStart(t: number, cfg: StaggerConfig, tz: string): number {
+  const p = partsInZone(t + 24 * 60 * 60 * 1000, tz);
+  return zonedTimeToUtc(p.date, cfg.windowStart, tz)!.getTime();
 }
 
-/** Moves a timestamp forward until it falls inside the send window. */
-function intoWindow(t: number, cfg: StaggerConfig): number {
+/** Moves a timestamp forward until it falls inside the window for `tz`. */
+function intoWindow(t: number, cfg: StaggerConfig, tz: string): number {
   for (let guard = 0; guard < 200; guard++) {
-    const p = partsInZone(t, cfg.timeZone);
+    const p = partsInZone(t, tz);
     if (cfg.skipWeekends && (p.weekday === "Sat" || p.weekday === "Sun")) {
-      t = nextDayWindowStart(t, cfg);
+      t = nextDayWindowStart(t, cfg, tz);
       continue;
     }
     if (p.hhmm < cfg.windowStart) {
-      t = zonedTimeToUtc(p.date, cfg.windowStart, cfg.timeZone)!.getTime();
+      t = zonedTimeToUtc(p.date, cfg.windowStart, tz)!.getTime();
       continue;
     }
     if (p.hhmm >= cfg.windowEnd) {
-      t = nextDayWindowStart(t, cfg);
+      t = nextDayWindowStart(t, cfg, tz);
       continue;
     }
     return t;
@@ -87,9 +92,10 @@ export function computeStaggeredTimes(
   let dayKey = "";
   let sentThisDay = 0;
 
+  const tz = cfg.timeZone;
   for (let i = 0; i < count; i++) {
-    t = intoWindow(t, cfg);
-    let p = partsInZone(t, cfg.timeZone);
+    t = intoWindow(t, cfg, tz);
+    let p = partsInZone(t, tz);
     if (p.date !== dayKey) {
       dayKey = p.date;
       sentThisDay = usedOf(dayKey);
@@ -98,14 +104,60 @@ export function computeStaggeredTimes(
     // in a row once existing commitments and the warm-up ramp are factored in).
     let guard = 0;
     while (sentThisDay >= capOf(dayKey) && guard++ < 400) {
-      t = intoWindow(nextDayWindowStart(t, cfg), cfg);
-      p = partsInZone(t, cfg.timeZone);
+      t = intoWindow(nextDayWindowStart(t, cfg, tz), cfg, tz);
+      p = partsInZone(t, tz);
       dayKey = p.date;
       sentThisDay = usedOf(dayKey);
     }
     times.push(new Date(t));
     sentThisDay++;
     // ±25% jitter so gaps aren't perfectly uniform
+    t += gapMs * (0.75 + Math.random() * 0.5);
+  }
+
+  return times;
+}
+
+/**
+ * Like computeStaggeredTimes, but each recipient is placed inside their OWN
+ * timezone's window (zones[i]). The sender's gap and per-day cap still apply -
+ * the cap is bucketed by cfg.timeZone (the sender's day), so "40/day" stays
+ * 40 sends per sender-day regardless of where recipients live.
+ *
+ * Best results when callers pass recipients sorted east-to-west (earliest
+ * local morning first), so the clock advances monotonically through windows.
+ */
+export function computeStaggeredTimesByZone(
+  zones: string[],
+  base: Date,
+  cfg: StaggerConfig,
+  opts: StaggerOptions = {}
+): Date[] {
+  const times: Date[] = [];
+  const capOf = (day: string) => opts.capForDay?.(day) ?? cfg.dailyCap;
+  const usedOf = (day: string) => opts.committedByDay?.get(day) ?? 0;
+  const gapMs = cfg.gapMinutes * 60_000;
+
+  // Sender-day -> count already placed (seeded lazily from commitments).
+  const dayCount = new Map<string, number>();
+  const usedNow = (day: string) =>
+    dayCount.has(day) ? dayCount.get(day)! : usedOf(day);
+
+  let t = Math.max(base.getTime(), Date.now() + 5 * 60 * 1000);
+
+  for (let i = 0; i < zones.length; i++) {
+    const tz = zones[i] || cfg.timeZone;
+    t = intoWindow(t, cfg, tz);
+    let dayKey = tzDateKey(new Date(t), cfg.timeZone);
+
+    let guard = 0;
+    while (usedNow(dayKey) >= capOf(dayKey) && guard++ < 600) {
+      t = intoWindow(nextDayWindowStart(t, cfg, tz), cfg, tz);
+      dayKey = tzDateKey(new Date(t), cfg.timeZone);
+    }
+
+    times.push(new Date(t));
+    dayCount.set(dayKey, usedNow(dayKey) + 1);
     t += gapMs * (0.75 + Math.random() * 0.5);
   }
 
