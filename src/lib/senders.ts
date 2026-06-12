@@ -35,6 +35,12 @@ export const SENDERS: Sender[] = [
     mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
     signature: `Regards,\nTushar\n${COMPANY}`,
   },
+  {
+    name: "Shivam",
+    email: "shivam.goel@cloudsheer.com",
+    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
+    signature: `Regards,\nShivam\n${COMPANY}`,
+  },
 ];
 
 /** Default sender when a campaign has no fromAddress (replaces RESEND_FROM). */
