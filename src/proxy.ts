@@ -28,11 +28,11 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything EXCEPT routes that external systems must reach:
-  // - /api/webhooks/* (Resend events)
   // - /u/* (unsubscribe links in sent emails)
-  // - /api/process (Vercel cron, guarded by CRON_SECRET)
+  // - /api/process (daily Vercel cron, guarded by CRON_SECRET)
+  // - /api/dispatch (10-min external cron sending due emails, guarded by CRON_SECRET)
   // - /gate (the password form itself), Next assets, favicon
   matcher: [
-    "/((?!gate|u/|api/webhooks|api/process|_next/|favicon\\.ico).*)",
+    "/((?!gate|u/|api/process|api/dispatch|_next/|favicon\\.ico).*)",
   ],
 };
