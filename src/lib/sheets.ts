@@ -29,16 +29,52 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+/** Builds an A1 range, optionally scoped to a worksheet/tab by name. */
+function rangeRef(tab: string | null | undefined, a1: string): string {
+  if (!tab) return a1;
+  // Single quotes in a sheet name are escaped by doubling them.
+  return `'${tab.replace(/'/g, "''")}'!${a1}`;
+}
+
+/** Lists the worksheet (tab) names in a spreadsheet, in sheet order. */
+export async function fetchSheetTabs(
+  accessToken: string,
+  sheetId: string
+): Promise<string[]> {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`,
+    { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
+  );
+  if (!res.ok) {
+    if (res.status === 403) {
+      throw new Error(
+        "Google denied access to this sheet. Make sure you own it or it is shared with your account."
+      );
+    }
+    if (res.status === 404) throw new Error("Sheet not found. Check the URL.");
+    throw new Error(`Sheets API error ${res.status}`);
+  }
+  const data = (await res.json()) as {
+    sheets?: { properties?: { title?: string } }[];
+  };
+  return (data.sheets ?? [])
+    .map((s) => s.properties?.title ?? "")
+    .filter(Boolean);
+}
+
 /**
- * Fetches the first sheet of the spreadsheet. Row 1 is treated as headers;
- * every following row becomes a { [header]: value } record.
+ * Fetches a worksheet of the spreadsheet (the first tab when none is given).
+ * Row 1 is treated as headers; every following row becomes a
+ * { [header]: value } record.
  */
 export async function fetchSheetRows(
   accessToken: string,
-  sheetId: string
+  sheetId: string,
+  sheetTab?: string | null
 ): Promise<SheetData> {
+  const range = encodeURIComponent(rangeRef(sheetTab, "A1:ZZ100000"));
   const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1:ZZ100000?majorDimension=ROWS`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?majorDimension=ROWS`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
@@ -105,12 +141,15 @@ function columnLetter(index: number): string {
 export async function writeStatusColumn(
   accessToken: string,
   sheetId: string,
-  updates: { row: number; status: string }[]
+  updates: { row: number; status: string }[],
+  sheetTab?: string | null
 ): Promise<void> {
   if (updates.length === 0) return;
 
   const headerRes = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1:ZZ1`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(
+      rangeRef(sheetTab, "A1:ZZ1")
+    )}`,
     { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
   );
   if (!headerRes.ok) {
@@ -134,14 +173,14 @@ export async function writeStatusColumn(
   if (columnIndex === -1) {
     columnIndex = headers.length;
     data.push({
-      range: `${columnLetter(columnIndex)}1`,
+      range: rangeRef(sheetTab, `${columnLetter(columnIndex)}1`),
       values: [[STATUS_COLUMN_HEADER]],
     });
   }
 
   const col = columnLetter(columnIndex);
   for (const u of updates) {
-    data.push({ range: `${col}${u.row}`, values: [[u.status]] });
+    data.push({ range: rangeRef(sheetTab, `${col}${u.row}`), values: [[u.status]] });
   }
 
   const writeRes = await fetch(

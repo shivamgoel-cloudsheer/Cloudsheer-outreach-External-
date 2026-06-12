@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getValidAccessToken } from "@/lib/google";
-import { fetchSheetRows, parseSheetUrl } from "@/lib/sheets";
+import { fetchSheetRows, fetchSheetTabs, parseSheetUrl } from "@/lib/sheets";
 
-const bodySchema = z.object({ sheetUrl: z.string().min(1) });
+const bodySchema = z.object({
+  sheetUrl: z.string().min(1),
+  sheetTab: z.string().optional(),
+});
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -26,9 +29,17 @@ export async function POST(request: Request) {
 
   try {
     const accessToken = await getValidAccessToken(session.user.id);
-    const sheet = await fetchSheetRows(accessToken, sheetId);
+    const tabs = await fetchSheetTabs(accessToken, sheetId);
+    // Use the requested tab if it exists, otherwise the first one.
+    const selectedTab =
+      parsed.data.sheetTab && tabs.includes(parsed.data.sheetTab)
+        ? parsed.data.sheetTab
+        : (tabs[0] ?? null);
+    const sheet = await fetchSheetRows(accessToken, sheetId, selectedTab);
     return Response.json({
       sheetId: sheet.sheetId,
+      tabs,
+      selectedTab,
       headers: sheet.headers,
       emailColumn: sheet.emailColumn,
       totalRows: sheet.rows.length,

@@ -26,6 +26,10 @@ const bodySchema = z.object({
   fromName: z.string().max(100).optional(),
   fromEmail: z.string().email().max(200).optional(),
   signature: z.string().max(2000).optional(),
+  // Worksheet/tab to read from (defaults to the first), and which columns to
+  // keep in each recipient snapshot (defaults to all).
+  sheetTab: z.string().optional(),
+  selectedColumns: z.array(z.string()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -64,6 +68,8 @@ export async function POST(request: Request) {
     parsed.data.signature?.trim() ||
     (fromAddress ? signatureFor(fromAddress) : null);
 
+  const sheetTab = parsed.data.sheetTab?.trim() || null;
+
   const sheetId = parseSheetUrl(sheetUrl);
   if (!sheetId) {
     return Response.json(
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
 
   try {
     const accessToken = await getValidAccessToken(session.user.id);
-    const sheet = await fetchSheetRows(accessToken, sheetId);
+    const sheet = await fetchSheetRows(accessToken, sheetId, sheetTab);
 
     const emailColumn = sheet.emailColumn ?? findEmailColumn(sheet.headers);
     if (!emailColumn) {
@@ -84,24 +90,39 @@ export async function POST(request: Request) {
       );
     }
 
+    const nameColumn = sheet.headers.find(
+      (h) => h.trim().toLowerCase() === "name"
+    );
+
+    // Columns kept in each recipient snapshot. Email (and Name when present)
+    // are always kept; otherwise honor the chosen columns, defaulting to all.
+    const selected = parsed.data.selectedColumns;
+    const keepColumns =
+      selected && selected.length > 0
+        ? sheet.headers.filter(
+            (h) =>
+              h === emailColumn ||
+              (nameColumn != null && h === nameColumn) ||
+              selected.includes(h)
+          )
+        : sheet.headers;
+    const keepSet = new Set(keepColumns);
+
+    // Templates may only reference columns that are actually kept.
     const unknown = [
-      ...findUnknownPlaceholders(subjectTemplate, sheet.headers),
-      ...findUnknownPlaceholders(bodyTemplate, sheet.headers),
-      ...findUnknownPlaceholders(subjectTemplateB ?? "", sheet.headers),
-      ...findUnknownPlaceholders(bodyTemplateB ?? "", sheet.headers),
+      ...findUnknownPlaceholders(subjectTemplate, keepColumns),
+      ...findUnknownPlaceholders(bodyTemplate, keepColumns),
+      ...findUnknownPlaceholders(subjectTemplateB ?? "", keepColumns),
+      ...findUnknownPlaceholders(bodyTemplateB ?? "", keepColumns),
     ];
     if (unknown.length > 0) {
       return Response.json(
         {
-          error: `Unknown placeholders (no matching sheet column): ${unknown.join(", ")}`,
+          error: `Unknown placeholders (not a selected column): ${unknown.join(", ")}`,
         },
         { status: 400 }
       );
     }
-
-    const nameColumn = sheet.headers.find(
-      (h) => h.trim().toLowerCase() === "name"
-    );
 
     // Row 1 is headers, so data row i lives at sheet row i + 2
     const withValidEmail = sheet.rows
@@ -151,6 +172,7 @@ export async function POST(request: Request) {
         bodyTemplateB,
         fromAddress,
         signature,
+        sheetTab,
         status: "draft",
         total: validRows.length,
       })
@@ -164,7 +186,10 @@ export async function POST(request: Request) {
           campaignId: campaign.id,
           email: row[emailColumn].trim().toLowerCase(),
           name: nameColumn ? row[nameColumn] || null : null,
-          rowData: row,
+          // Snapshot only the kept columns.
+          rowData: Object.fromEntries(
+            Object.entries(row).filter(([k]) => keepSet.has(k))
+          ),
           sheetRow,
           variant: (hasVariantB && (i + j) % 2 === 1 ? "B" : "A") as "A" | "B",
           unsubscribeToken: nanoid(32),

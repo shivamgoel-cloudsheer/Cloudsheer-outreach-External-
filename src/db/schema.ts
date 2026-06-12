@@ -115,6 +115,9 @@ export const campaigns = pgTable(
     name: text("name").notNull(),
     sheetId: text("sheet_id").notNull(),
     sheetUrl: text("sheet_url").notNull(),
+    // Worksheet/tab the recipients came from (null = first tab); status
+    // write-back targets this same tab.
+    sheetTab: text("sheet_tab"),
     subjectTemplate: text("subject_template").notNull(),
     bodyTemplate: text("body_template").notNull(),
     // Optional A/B variant; when set, recipients are split 50/50

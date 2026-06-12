@@ -17,6 +17,8 @@ import { lintContent } from "@/lib/linter";
 
 type Preview = {
   sheetId: string;
+  tabs: string[];
+  selectedTab: string | null;
   headers: string[];
   emailColumn: string | null;
   totalRows: number;
@@ -63,6 +65,8 @@ export default function NewCampaignPage() {
   const [step, setStep] = useState(0);
   const [sheetUrl, setSheetUrl] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [sheetTab, setSheetTab] = useState<string | null>(null);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -93,18 +97,20 @@ export default function NewCampaignPage() {
     [subject, body]
   );
 
-  async function loadSheet() {
+  async function loadSheet(tab?: string | null) {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/sheets/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetUrl }),
+        body: JSON.stringify({ sheetUrl, ...(tab ? { sheetTab: tab } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load sheet");
       setPreview(data);
+      setSheetTab(data.selectedTab ?? null);
+      setSelectedColumns(data.headers); // default: keep all columns
       setPreviewRowIndex(0);
 
       const headers: string[] = data.headers;
@@ -147,6 +153,8 @@ export default function NewCampaignPage() {
             ? { fromEmail: fromEmail.trim(), fromName: fromName.trim() }
             : {}),
           ...(signature.trim() ? { signature: signature.trim() } : {}),
+          ...(sheetTab ? { sheetTab } : {}),
+          selectedColumns,
         }),
       });
       const data = await res.json();
@@ -231,7 +239,7 @@ export default function NewCampaignPage() {
               onKeyDown={(e) => e.key === "Enter" && sheetUrl.trim() && loadSheet()}
             />
             <button
-              onClick={loadSheet}
+              onClick={() => loadSheet()}
               disabled={loading || !sheetUrl.trim()}
               className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:opacity-40"
             >
@@ -260,6 +268,87 @@ export default function NewCampaignPage() {
                   </span>
                 )}
               </div>
+
+              {preview.tabs.length > 1 && (
+                <div className="mt-4">
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-400">
+                    Worksheet
+                  </label>
+                  <select
+                    className={inputClass}
+                    value={sheetTab ?? ""}
+                    disabled={loading}
+                    onChange={(e) => loadSheet(e.target.value)}
+                  >
+                    {preview.tabs.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-neutral-400">
+                    Columns to include ({selectedColumns.length}/
+                    {preview.headers.length})
+                  </label>
+                  <div className="flex gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedColumns(preview.headers)}
+                      className="text-sky-400 transition hover:text-sky-300"
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedColumns(
+                          preview.emailColumn ? [preview.emailColumn] : []
+                        )
+                      }
+                      className="text-neutral-500 transition hover:text-neutral-300"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {preview.headers.map((h) => {
+                    const locked = h === preview.emailColumn;
+                    const on = locked || selectedColumns.includes(h);
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        disabled={locked}
+                        title={
+                          locked ? "Email column is always included" : undefined
+                        }
+                        onClick={() =>
+                          setSelectedColumns((prev) =>
+                            prev.includes(h)
+                              ? prev.filter((c) => c !== h)
+                              : [...prev, h]
+                          )
+                        }
+                        className={`rounded-md border px-2 py-1 text-[11px] transition ${
+                          on
+                            ? "border-sky-500/50 bg-sky-500/10 text-sky-300"
+                            : "border-neutral-800 bg-neutral-950/60 text-neutral-500 hover:text-neutral-300"
+                        } ${locked ? "cursor-not-allowed opacity-80" : ""}`}
+                      >
+                        {h}
+                        {locked ? " (required)" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="mt-3 overflow-x-auto rounded-xl border border-neutral-800">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-neutral-900 text-neutral-400">
@@ -429,7 +518,7 @@ export default function NewCampaignPage() {
               />
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-neutral-600">Insert:</span>
-                {preview.headers.map((h) => (
+                {selectedColumns.map((h) => (
                   <button
                     key={h}
                     type="button"

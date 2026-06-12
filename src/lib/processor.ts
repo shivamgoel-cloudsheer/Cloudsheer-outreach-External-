@@ -352,7 +352,8 @@ export async function processUser(userId: string): Promise<ProcessResult> {
             r.sequenceStep > 0
               ? `${r.status} (step ${r.sequenceStep})`
               : r.status,
-        }))
+        })),
+        campaign.sheetTab
       );
       result.sheetsSynced++;
     }
