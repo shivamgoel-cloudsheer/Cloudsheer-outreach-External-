@@ -74,6 +74,35 @@ const COUNTRY_TZ: Record<string, string> = {
   nigeria: "Africa/Lagos",
 };
 
+/** Curated country -> timezone choices for a campaign-level send-window picker. */
+export const COUNTRY_OPTIONS: { label: string; timeZone: string }[] = [
+  { label: "United States (Eastern)", timeZone: "America/New_York" },
+  { label: "United States (Central)", timeZone: "America/Chicago" },
+  { label: "United States (Mountain)", timeZone: "America/Denver" },
+  { label: "United States (Pacific)", timeZone: "America/Los_Angeles" },
+  { label: "United Kingdom", timeZone: "Europe/London" },
+  { label: "Ireland", timeZone: "Europe/Dublin" },
+  { label: "Canada (Eastern)", timeZone: "America/Toronto" },
+  { label: "India", timeZone: "Asia/Kolkata" },
+  { label: "Australia (Sydney)", timeZone: "Australia/Sydney" },
+  { label: "New Zealand", timeZone: "Pacific/Auckland" },
+  { label: "Germany", timeZone: "Europe/Berlin" },
+  { label: "France", timeZone: "Europe/Paris" },
+  { label: "Spain", timeZone: "Europe/Madrid" },
+  { label: "Italy", timeZone: "Europe/Rome" },
+  { label: "Netherlands", timeZone: "Europe/Amsterdam" },
+  { label: "UAE (Dubai)", timeZone: "Asia/Dubai" },
+  { label: "Saudi Arabia", timeZone: "Asia/Riyadh" },
+  { label: "Singapore", timeZone: "Asia/Singapore" },
+  { label: "Japan", timeZone: "Asia/Tokyo" },
+  { label: "China", timeZone: "Asia/Shanghai" },
+  { label: "Hong Kong", timeZone: "Asia/Hong_Kong" },
+  { label: "Philippines", timeZone: "Asia/Manila" },
+  { label: "Brazil (São Paulo)", timeZone: "America/Sao_Paulo" },
+  { label: "Mexico", timeZone: "America/Mexico_City" },
+  { label: "South Africa", timeZone: "Africa/Johannesburg" },
+];
+
 const COUNTRY_HEADER_CANDIDATES = [
   "country",
   "country/region",

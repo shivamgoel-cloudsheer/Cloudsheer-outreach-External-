@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { StatusChip } from "@/components/ui";
+import { COUNTRY_OPTIONS } from "@/lib/geo";
 
 type Step = {
   id: string;
@@ -81,6 +82,8 @@ export default function CampaignPage({
   const [skipWeekends, setSkipWeekends] = useState(true);
   const [warmup, setWarmup] = useState(true);
   const [recipientLocalTz, setRecipientLocalTz] = useState(false);
+  // "" = use my (browser) timezone; otherwise a chosen country's IANA zone.
+  const [windowTz, setWindowTz] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
   const [showAddStep, setShowAddStep] = useState(false);
   const [stepDelay, setStepDelay] = useState(3);
@@ -128,7 +131,8 @@ export default function CampaignPage({
           skipWeekends,
           warmup,
           perRecipientTimeZone: recipientLocalTz,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timeZone:
+            windowTz || Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
       };
       const res = await fetch(`/api/campaigns/${id}/send`, {
@@ -473,6 +477,30 @@ export default function CampaignPage({
                             className="w-full rounded-lg border border-neutral-800 bg-neutral-950 px-2.5 py-1.5 text-sm text-neutral-100 outline-none focus:border-sky-500 [color-scheme:dark]"
                           />
                         </div>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-neutral-500">
+                          Window timezone (country)
+                        </label>
+                        <select
+                          value={windowTz}
+                          onChange={(e) => setWindowTz(e.target.value)}
+                          className="w-full rounded-lg border border-neutral-800 bg-neutral-950 px-2.5 py-1.5 text-sm text-neutral-100 outline-none focus:border-sky-500"
+                        >
+                          <option value="">My timezone</option>
+                          {COUNTRY_OPTIONS.map((c) => (
+                            <option key={c.timeZone} value={c.timeZone}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-neutral-600">
+                          The {windowStart}-{windowEnd} window runs in this
+                          country&apos;s local time.
+                          {recipientLocalTz
+                            ? " (Used only as the fallback when recipient local time is on below.)"
+                            : ""}
+                        </p>
                       </div>
                       <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-400">
                         <input
