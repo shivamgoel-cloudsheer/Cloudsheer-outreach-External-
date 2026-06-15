@@ -16,29 +16,32 @@ export type Sender = {
 
 const COMPANY = "CloudSheer Consulting";
 
+const ADDRESS =
+  "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA";
+
 export const SENDERS: Sender[] = [
   {
     name: "Shubham",
     email: "shubham@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
-    signature: `Regards,\nShubham\n${COMPANY}`,
+    mailingAddress: ADDRESS,
+    signature: `Regards,\nShubham\nVP, Growth & Operations\n${COMPANY}`,
   },
   {
     name: "Bharat",
     email: "bharat@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
-    signature: `Regards,\nBharat\n${COMPANY}`,
+    mailingAddress: ADDRESS,
+    signature: `Regards,\nBharat\nHead of Operations\n${COMPANY}`,
   },
   {
     name: "Tushar",
     email: "tushar@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
-    signature: `Regards,\nTushar\n${COMPANY}`,
+    mailingAddress: ADDRESS,
+    signature: `Regards,\nTushar\nFounder\n${COMPANY}`,
   },
   {
     name: "Shivam",
     email: "shivam.goel@cloudsheer.com",
-    mailingAddress: "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA",
+    mailingAddress: ADDRESS,
     signature: `Regards,\nShivam\n${COMPANY}`,
   },
 ];

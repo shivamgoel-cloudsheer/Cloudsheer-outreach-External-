@@ -37,24 +37,27 @@ const SENDERS = [
   {
     name: "Shubham",
     email: "shubham@cloudsheer.com",
-    signature: `Regards,\nShubham\n${COMPANY}`,
+    signature: `Regards,\nShubham\nVP, Growth & Operations\n${COMPANY}`,
   },
   {
     name: "Bharat",
     email: "bharat@cloudsheer.com",
-    signature: `Regards,\nBharat\n${COMPANY}`,
+    signature: `Regards,\nBharat\nHead of Operations\n${COMPANY}`,
   },
   {
     name: "Tushar",
     email: "tushar@cloudsheer.com",
-    signature: `Regards,\nTushar\n${COMPANY}`,
+    signature: `Regards,\nTushar\nFounder\n${COMPANY}`,
+  },
+  {
+    name: "Shivam",
+    email: "shivam.goel@cloudsheer.com",
+    signature: `Regards,\nShivam\n${COMPANY}`,
   },
 ];
 
 const defaultSignature = (name: string) =>
   name ? `Regards,\n${name}\n${COMPANY}` : `Regards,\n${COMPANY}`;
-
-const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 const inputClass =
   "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30";
@@ -75,7 +78,6 @@ export default function NewCampaignPage() {
   const [bodyB, setBodyB] = useState("");
   const [fromName, setFromName] = useState("Shubham");
   const [fromEmail, setFromEmail] = useState("shubham@cloudsheer.com");
-  const [customSender, setCustomSender] = useState(false);
   const [signature, setSignature] = useState(SENDERS[0].signature);
   const [sigTouched, setSigTouched] = useState(false);
   // email -> can this mailbox send via Gmail right now?
@@ -83,21 +85,43 @@ export default function NewCampaignPage() {
     string,
     { linked: boolean; sendReady: boolean }
   > | null>(null);
+  // The signed-in user, when they're a cloudsheer.com mailbox that isn't a
+  // preset sender - they can still send from their own inbox.
+  const [me, setMe] = useState<{
+    name: string;
+    email: string;
+    sendReady: boolean;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/senders/status", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (!json?.senders) return;
-        setSenderStatus(
-          new Map(
-            (json.senders as {
-              email: string;
-              linked: boolean;
-              sendReady: boolean;
-            }[]).map((s) => [s.email, s])
-          )
+        const map = new Map<string, { linked: boolean; sendReady: boolean }>(
+          (json.senders as {
+            email: string;
+            linked: boolean;
+            sendReady: boolean;
+          }[]).map((s) => [s.email, s])
         );
+        if (
+          json.me?.email &&
+          !SENDERS.some(
+            (s) => s.email.toLowerCase() === json.me.email.toLowerCase()
+          )
+        ) {
+          setMe({
+            name: json.me.name ?? "",
+            email: json.me.email,
+            sendReady: !!json.me.sendReady,
+          });
+          map.set(json.me.email, {
+            linked: true,
+            sendReady: !!json.me.sendReady,
+          });
+        }
+        setSenderStatus(map);
       })
       .catch(() => {});
   }, []);
@@ -189,13 +213,21 @@ export default function NewCampaignPage() {
     }
   }
 
+  // Preset senders plus the signed-in user's own mailbox (any cloudsheer.com
+  // login), so anyone on the team can send from their own inbox.
+  const senderOptions = me
+    ? [
+        ...SENDERS,
+        {
+          name: me.name || me.email.split("@")[0],
+          email: me.email,
+          signature: defaultSignature(me.name || me.email.split("@")[0]),
+        },
+      ]
+    : SENDERS;
+
   const canCompose = !!preview?.emailColumn;
-  const canReview = !!(
-    name.trim() &&
-    subject.trim() &&
-    body.trim() &&
-    (!customSender || isEmail(fromEmail))
-  );
+  const canReview = !!(name.trim() && subject.trim() && body.trim());
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -436,15 +468,11 @@ export default function NewCampaignPage() {
               </label>
               <select
                 className={inputClass}
-                value={customSender ? "custom" : fromEmail}
+                value={fromEmail}
                 onChange={(e) => {
-                  if (e.target.value === "custom") {
-                    setCustomSender(true);
-                    if (!sigTouched) setSignature(defaultSignature(fromName));
-                    return;
-                  }
-                  setCustomSender(false);
-                  const match = SENDERS.find((s) => s.email === e.target.value);
+                  const match = senderOptions.find(
+                    (s) => s.email === e.target.value
+                  );
                   if (match) {
                     setFromEmail(match.email);
                     setFromName(match.name);
@@ -452,75 +480,34 @@ export default function NewCampaignPage() {
                   }
                 }}
               >
-                {SENDERS.map((s) => {
+                {senderOptions.map((s) => {
                   const st = senderStatus?.get(s.email);
                   const blocked = st ? !st.sendReady : false;
+                  const isMe = me?.email === s.email;
                   return (
                     <option key={s.email} value={s.email} disabled={blocked}>
-                      {s.name} &lt;{s.email}&gt;
+                      {s.name} &lt;{s.email}&gt;{isMe ? " (you)" : ""}
                       {st && !st.linked
-                        ? " — not connected"
+                        ? " - not connected"
                         : st && !st.sendReady
-                          ? " — needs Google re-connect"
+                          ? " - needs Google re-connect"
                           : ""}
                     </option>
                   );
                 })}
-                <option value="custom">Custom address…</option>
               </select>
               {(() => {
                 const st = senderStatus?.get(fromEmail);
-                if (customSender || !st || st.sendReady) return null;
+                if (!st || st.sendReady) return null;
                 return (
-                  <p className="mt-1.5 text-xs text-amber-400/90">
+                  <p className="mt-1.5 text-xs text-amber-600">
                     {st.linked
                       ? `${fromEmail} needs to re-connect Google to grant send permission (sign out and back in once).`
-                      : `${fromEmail} hasn't signed in to the dashboard yet — emails send through each person's own Gmail.`}
+                      : `${fromEmail} hasn't signed in to the dashboard yet - emails send through each person's own Gmail.`}
                   </p>
                 );
               })()}
             </div>
-
-            {customSender && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                    From name
-                  </label>
-                  <input
-                    className={inputClass}
-                    placeholder="Alex Rivera"
-                    value={fromName}
-                    onChange={(e) => {
-                      setFromName(e.target.value);
-                      if (!sigTouched)
-                        setSignature(defaultSignature(e.target.value));
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                    From email
-                  </label>
-                  <input
-                    className={inputClass}
-                    placeholder="alex@yourdomain.com"
-                    value={fromEmail}
-                    onChange={(e) => setFromEmail(e.target.value)}
-                  />
-                  {fromEmail.trim() && !isEmail(fromEmail) && (
-                    <p className="mt-1 text-xs text-red-500">
-                      Enter a valid email address.
-                    </p>
-                  )}
-                  <p className="mt-1 text-xs text-slate-400">
-                    Emails send through this mailbox&apos;s own Gmail, so its
-                    owner must have signed in to the dashboard with Google
-                    once.
-                  </p>
-                </div>
-              </div>
-            )}
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-500">

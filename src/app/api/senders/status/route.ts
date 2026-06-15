@@ -22,5 +22,22 @@ export async function GET() {
     })
   );
 
-  return Response.json({ senders });
+  // The signed-in user can always send from their own mailbox (any cloudsheer.com
+  // login), even if they aren't one of the preset senders. The form uses this to
+  // add their address to the From list.
+  const email = session.user.email ?? null;
+  const me =
+    email && email.toLowerCase().endsWith("@cloudsheer.com")
+      ? {
+          name: session.user.name ?? "",
+          email,
+          linked: true,
+          // They're signed in right now; send readiness still depends on scope.
+          sendReady: hasSendScope(
+            (await getSenderAccount(email))?.scope ?? null
+          ),
+        }
+      : null;
+
+  return Response.json({ senders, me });
 }
