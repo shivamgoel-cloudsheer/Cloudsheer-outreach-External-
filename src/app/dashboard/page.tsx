@@ -27,7 +27,6 @@ export default async function DashboardPage() {
     .orderBy(desc(campaigns.createdAt));
 
   type Stats = {
-    delivered: number;
     replied: number;
     bounced: number;
     reached: number;
@@ -55,12 +54,13 @@ export default async function DashboardPage() {
 
     for (const row of counts) {
       const stats = statsByCampaign.get(row.campaignId) ?? {
-        delivered: 0,
         replied: 0,
         bounced: 0,
         reached: 0,
       };
-      // Higher statuses imply the lower ones (a reply implies delivery, etc.)
+      // "reached" = everyone a send was attempted for. Gmail sending has no
+      // delivery/open/click events, so "sent" is the success state; legacy
+      // Resend statuses are kept here only for historical campaigns.
       if (
         ["sent", "delivered", "opened", "clicked", "replied", "bounced"].includes(
           row.status
@@ -68,9 +68,6 @@ export default async function DashboardPage() {
       ) {
         stats.reached += row.count;
         totalSent += row.count;
-      }
-      if (["delivered", "opened", "clicked", "replied"].includes(row.status)) {
-        stats.delivered += row.count;
       }
       if (row.status === "replied") {
         stats.replied += row.count;
@@ -211,9 +208,9 @@ export default async function DashboardPage() {
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-semibold text-slate-800">
-                              {stats.delivered}
+                              {stats.reached - stats.bounced}
                             </p>
-                            <p className="text-xs text-slate-500">delivered</p>
+                            <p className="text-xs text-slate-500">sent</p>
                           </div>
                         </div>
                       )}
