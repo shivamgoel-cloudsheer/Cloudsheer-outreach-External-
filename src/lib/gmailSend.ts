@@ -1,8 +1,11 @@
 /**
  * Sends email through the Gmail API as the sender's own mailbox — the message
  * goes out from Google's servers, lands in the sender's Sent folder, and
- * threads exactly like hand-written mail. Plain text only by design.
+ * threads exactly like hand-written mail. Sent as multipart/alternative (a
+ * plain-text part plus a lightweight HTML part) so it renders like a normally
+ * composed Gmail message, with the plain-text part as the fallback.
  */
+import { randomUUID } from "node:crypto";
 
 export type GmailSendArgs = {
   accessToken: string;
@@ -11,7 +14,10 @@ export type GmailSendArgs = {
   fromEmail: string;
   to: string;
   subject: string;
+  /** Plain-text body (fallback part). */
   text: string;
+  /** Optional HTML body. When present the message is multipart/alternative. */
+  html?: string;
   /** Our own RFC 2822 Message-ID for the initial send (see newRfcMessageId). */
   messageId?: string;
   /** Gmail thread id of the original send — follow-ups thread under it. */
@@ -65,6 +71,16 @@ function base64url(buf: Buffer): string {
     .replace(/=+$/, "");
 }
 
+/** base64-encode a string, wrapping lines at 76 chars per RFC 2045. */
+function base64Body(value: string): string {
+  return (
+    Buffer.from(value, "utf8")
+      .toString("base64")
+      .match(/.{1,76}/g)
+      ?.join("\r\n") ?? ""
+  );
+}
+
 /** Builds the raw RFC 2822 message (exported for testing). */
 export function buildMime(args: GmailSendArgs): string {
   const from = args.fromName
@@ -81,20 +97,45 @@ export function buildMime(args: GmailSendArgs): string {
     headers.push(`In-Reply-To: ${args.inReplyTo}`);
     headers.push(`References: ${args.inReplyTo}`);
   }
+  headers.push("MIME-Version: 1.0");
+
+  const html = args.html?.trim();
+
+  // No HTML supplied -> single plain-text body (legacy behaviour).
+  if (!html) {
+    headers.push(
+      'Content-Type: text/plain; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64"
+    );
+    return headers.join("\r\n") + "\r\n\r\n" + base64Body(args.text);
+  }
+
+  // multipart/alternative: plain text first (fallback), then HTML. Clients
+  // show the richest part they support, which is the HTML one in Gmail.
+  const boundary = `=_cs_${randomUUID()}`;
   headers.push(
-    "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
-    "Content-Transfer-Encoding: base64"
+    `Content-Type: multipart/alternative; boundary="${boundary}"`
   );
 
-  // Body base64 lines are wrapped at 76 chars per RFC 2045
-  const body =
-    Buffer.from(args.text, "utf8")
-      .toString("base64")
-      .match(/.{1,76}/g)
-      ?.join("\r\n") ?? "";
+  const parts = [
+    [
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      base64Body(args.text),
+    ].join("\r\n"),
+    [
+      `--${boundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      base64Body(html),
+    ].join("\r\n"),
+    `--${boundary}--`,
+  ];
 
-  return headers.join("\r\n") + "\r\n\r\n" + body;
+  return headers.join("\r\n") + "\r\n\r\n" + parts.join("\r\n") + "\r\n";
 }
 
 const SEND_URL =

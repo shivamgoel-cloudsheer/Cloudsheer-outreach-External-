@@ -192,7 +192,7 @@ export async function dispatchDue(limit = 50): Promise<DispatchResult> {
       }
 
       const subject = renderTemplate(subjectTpl, r.rowData);
-      const { text } = buildEmailBodies(
+      const { text, html } = buildEmailBodies(
         renderTemplate(bodyTpl, r.rowData),
         campaign.signature ?? signatureFor(campaign.fromAddress)
       );
@@ -212,6 +212,7 @@ export async function dispatchDue(limit = 50): Promise<DispatchResult> {
           to: r.email,
           subject,
           text,
+          html,
           messageId: rfcId,
           // Resend-era originals have neither -> clean standalone send
           threadId: isFollowup ? r.gmailThreadId : null,
