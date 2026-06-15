@@ -14,10 +14,10 @@ export type Sender = {
   signature: string;
 };
 
-const COMPANY = "CloudSheer Consulting";
+const COMPANY = "Cloudsheer Consulting";
 
 const ADDRESS =
-  "CloudSheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA";
+  "Cloudsheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA";
 
 export const SENDERS: Sender[] = [
   {

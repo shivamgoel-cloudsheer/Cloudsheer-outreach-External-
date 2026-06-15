@@ -31,7 +31,7 @@ const STEPS = [
   { icon: Rocket, label: "Review" },
 ];
 
-const COMPANY = "CloudSheer Consulting";
+const COMPANY = "Cloudsheer Consulting";
 
 const SENDERS = [
   {
@@ -515,7 +515,7 @@ export default function NewCampaignPage() {
               </label>
               <textarea
                 className={`${inputClass} min-h-20 whitespace-pre-wrap`}
-                placeholder={"Regards,\nName\nCloudSheer Consulting"}
+                placeholder={"Regards,\nName\nCloudsheer Consulting"}
                 value={signature}
                 onChange={(e) => {
                   setSignature(e.target.value);
