@@ -87,6 +87,7 @@ export async function GET(
       createdAt: campaign.createdAt,
       sentAt: campaign.sentAt,
       scheduledAt: campaign.scheduledAt,
+      staggerConfig: campaign.staggerConfig,
     },
     steps,
     counts,

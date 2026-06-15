@@ -13,6 +13,7 @@ import {
   Mail,
   MessageSquareReply,
   RefreshCw,
+  Save,
   Trash2,
   TriangleAlert,
   X,
@@ -41,6 +42,16 @@ type CampaignStatusResponse = {
     createdAt: string;
     sentAt: string | null;
     scheduledAt: string | null;
+    staggerConfig: {
+      gapMinutes: number;
+      dailyCap: number;
+      windowStart: string;
+      windowEnd: string;
+      skipWeekends: boolean;
+      timeZone: string;
+      warmup: boolean;
+      perRecipientTimeZone?: boolean;
+    } | null;
   };
   steps: Step[];
   counts: Record<string, number>;
@@ -113,32 +124,95 @@ export default function CampaignPage({
     };
   }, [refresh]);
 
+  // ISO -> the value a <input type="datetime-local"> expects (local time).
+  function toLocalInput(iso: string): string {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+      d.getDate()
+    )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // Open the drip dialog, prefilling from any settings saved on the draft.
+  function openSchedule() {
+    const cfg = data?.campaign.staggerConfig;
+    if (cfg) {
+      setGapMinutes(cfg.gapMinutes);
+      setDailyCap(cfg.dailyCap);
+      setWindowStart(cfg.windowStart);
+      setWindowEnd(cfg.windowEnd);
+      setSkipWeekends(cfg.skipWeekends);
+      setWarmup(cfg.warmup);
+      setRecipientLocalTz(cfg.perRecipientTimeZone ?? false);
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const known = COUNTRY_OPTIONS.some((c) => c.timeZone === cfg.timeZone);
+      setWindowTz(
+        cfg.timeZone && cfg.timeZone !== browserTz && known ? cfg.timeZone : ""
+      );
+    }
+    if (data?.campaign.scheduledAt) {
+      setScheduleTime(toLocalInput(data.campaign.scheduledAt));
+    }
+    setShowSchedule(true);
+  }
+
+  function staggerBody() {
+    return {
+      ...(scheduleTime
+        ? { scheduledAt: new Date(scheduleTime).toISOString() }
+        : {}),
+      stagger: {
+        gapMinutes,
+        dailyCap,
+        windowStart,
+        windowEnd,
+        skipWeekends,
+        warmup,
+        perRecipientTimeZone: recipientLocalTz,
+        timeZone: windowTz || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    };
+  }
+
+  // Save the drip settings (and start time) onto the draft without sending,
+  // so the campaign can be scheduled or sent later with these defaults.
+  async function saveSchedule() {
+    setSending(true);
+    setError(null);
+    try {
+      const body = staggerBody();
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stagger: body.stagger,
+          scheduledAt: scheduleTime
+            ? new Date(scheduleTime).toISOString()
+            : null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to save");
+      setShowSchedule(false);
+      setNotice("Saved. You can schedule or send this campaign later.");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSending(false);
+    }
+  }
+
   // Sending is always a drip. An optional start time only moves when the
   // first email goes out; the send still spreads over the window.
   async function startSend() {
     setSending(true);
     setError(null);
     try {
-      const body = {
-        ...(scheduleTime
-          ? { scheduledAt: new Date(scheduleTime).toISOString() }
-          : {}),
-        stagger: {
-          gapMinutes,
-          dailyCap,
-          windowStart,
-          windowEnd,
-          skipWeekends,
-          warmup,
-          perRecipientTimeZone: recipientLocalTz,
-          timeZone:
-            windowTz || Intl.DateTimeFormat().resolvedOptions().timeZone,
-        },
-      };
       const res = await fetch(`/api/campaigns/${id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(staggerBody()),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to start sending");
@@ -594,20 +668,31 @@ export default function CampaignPage({
                       </p>
                     </div>
 
-                    <button
-                      onClick={() => startSend()}
-                      disabled={sending}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:opacity-40"
-                    >
-                      <CalendarClock size={14} />
-                      {sending ? "Scheduling..." : "Start drip send"}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveSchedule()}
+                        disabled={sending}
+                        title="Save these settings to this draft and schedule or send it later"
+                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        <Save size={14} />
+                        {sending ? "Saving..." : "Save for later"}
+                      </button>
+                      <button
+                        onClick={() => startSend()}
+                        disabled={sending}
+                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:opacity-40"
+                      >
+                        <CalendarClock size={14} />
+                        {sending ? "Scheduling..." : "Start drip send"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={() => setShowSchedule(true)}
+                    onClick={openSchedule}
                     disabled={sending}
                     className="inline-flex items-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:opacity-40"
                   >
