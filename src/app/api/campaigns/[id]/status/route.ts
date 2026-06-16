@@ -94,6 +94,7 @@ export async function GET(
       sentAt: campaign.sentAt,
       scheduledAt: campaign.scheduledAt,
       staggerConfig: campaign.staggerConfig,
+      fromAddress: campaign.fromAddress,
     },
     steps,
     counts,
