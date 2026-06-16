@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { SENDERS } from "@/lib/senders";
+import { SENDERS, isAllowedSenderEmail } from "@/lib/senders";
 import { getSenderAccount, hasSendScope } from "@/lib/google";
 
 // Link status for each configured sender mailbox, so the campaign form can
@@ -22,12 +22,12 @@ export async function GET() {
     })
   );
 
-  // The signed-in user can always send from their own mailbox (any cloudsheer.com
-  // login), even if they aren't one of the preset senders. The form uses this to
-  // add their address to the From list.
+  // The signed-in user can always send from their own mailbox (any allowed
+  // sending domain), even if they aren't one of the preset senders. The form
+  // uses this to add their address to the From list.
   const email = session.user.email ?? null;
   const me =
-    email && email.toLowerCase().endsWith("@cloudsheer.com")
+    email && isAllowedSenderEmail(email)
       ? {
           name: session.user.name ?? "",
           email,

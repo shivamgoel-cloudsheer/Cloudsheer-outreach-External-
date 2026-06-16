@@ -16,6 +16,21 @@ export type Sender = {
 
 const COMPANY = "Cloudsheer Consulting";
 
+/**
+ * Domains whose signed-in users may send from their own Gmail mailbox through
+ * this tool (in addition to the preset SENDERS below). Each domain's mailboxes
+ * must be Google Workspace accounts that can grant the gmail.send scope.
+ */
+export const ALLOWED_SENDER_DOMAINS = ["cloudsheer.com", "getcloudsheer.com"];
+
+/** True when a signed-in address is allowed to send from its own mailbox. */
+export function isAllowedSenderEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  return ALLOWED_SENDER_DOMAINS.includes(email.slice(at + 1).toLowerCase());
+}
+
 const ADDRESS =
   "Cloudsheer Consulting, 6614 Avenue U, #1019, Brooklyn, New York 11234, USA";
 
