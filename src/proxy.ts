@@ -1,16 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { GATE_COOKIE, gateToken } from "@/lib/gate";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Site-wide password gate
-  if (process.env.ACCESS_PASSWORD) {
-    const token = request.cookies.get(GATE_COOKIE)?.value;
-    if (token !== gateToken()) {
-      return NextResponse.redirect(new URL("/gate", request.url));
-    }
-  }
+  // No site-wide password gate: this is a client-facing app, so the landing
+  // page ("/") is public and Google sign-in is the only barrier. Access to
+  // real data is controlled by auth() plus admin/client scoping.
 
   // Lightweight session check for the dashboard; real enforcement
   // happens via auth() in server components and API routes.

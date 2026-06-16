@@ -36,6 +36,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verificationTokensTable: verificationTokens,
   }),
   session: { strategy: "database" },
+  // Sign-in and sign-up happen only on the landing page ("/"), never on the
+  // default Auth.js page. Any sign-in flow Auth.js triggers redirects here.
+  pages: { signIn: "/" },
   providers: [
     Google({
       authorization: {
