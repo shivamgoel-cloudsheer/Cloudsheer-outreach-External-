@@ -203,7 +203,18 @@ export default async function DashboardPage() {
                           <>
                             <Clock size={12} />
                             Scheduled for{" "}
-                            {campaign.scheduledAt.toLocaleString()}
+                            {campaign.scheduledAt.toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                              timeZone: campaign.staggerConfig?.timeZone || "UTC",
+                              timeZoneName: "short",
+                            })}
+                            {campaign.staggerConfig?.perRecipientTimeZone
+                              ? " · each recipient's local time"
+                              : ""}
                           </>
                         ) : (
                           <>

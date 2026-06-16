@@ -737,7 +737,15 @@ export default function CampaignPage({
               <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-4 py-2 text-sm text-amber-700 ring-1 ring-inset ring-amber-500/30">
                 <CalendarClock size={14} />
                 {campaign.scheduledAt
-                  ? new Date(campaign.scheduledAt).toLocaleString()
+                  ? new Date(campaign.scheduledAt).toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZone: campaign.staggerConfig?.timeZone || undefined,
+                      timeZoneName: "short",
+                    })
                   : "Scheduled"}
               </span>
               <button
