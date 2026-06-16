@@ -20,15 +20,31 @@ const COMPANY = "Cloudsheer Consulting";
  * Domains whose signed-in users may send from their own Gmail mailbox through
  * this tool (in addition to the preset SENDERS below). Each domain's mailboxes
  * must be Google Workspace accounts that can grant the gmail.send scope.
+ *
+ * Configured via the ALLOWED_SENDER_DOMAINS env var (comma-separated) so new
+ * domains can be added in Vercel without a code change. Set it to "*" to allow
+ * any signed-in account to send from its own mailbox - safe only because Google
+ * OAuth (the "Internal" consent screen) already limits who can sign in at all.
  */
-export const ALLOWED_SENDER_DOMAINS = ["cloudsheer.com", "getcloudsheer.com"];
+const DEFAULT_SENDER_DOMAINS = ["cloudsheer.com", "getcloudsheer.com"];
+
+export function allowedSenderDomains(): string[] {
+  const raw = process.env.ALLOWED_SENDER_DOMAINS?.trim();
+  if (!raw) return DEFAULT_SENDER_DOMAINS;
+  return raw
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 /** True when a signed-in address is allowed to send from its own mailbox. */
 export function isAllowedSenderEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const at = email.lastIndexOf("@");
   if (at < 0) return false;
-  return ALLOWED_SENDER_DOMAINS.includes(email.slice(at + 1).toLowerCase());
+  const domains = allowedSenderDomains();
+  if (domains.includes("*")) return true; // trust whoever OAuth let sign in
+  return domains.includes(email.slice(at + 1).toLowerCase());
 }
 
 const ADDRESS =
