@@ -13,6 +13,7 @@ import {
   Mail,
   MessageSquareReply,
   RefreshCw,
+  RotateCcw,
   Save,
   Trash2,
   TriangleAlert,
@@ -389,6 +390,39 @@ export default function CampaignPage({
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add step");
+    }
+  }
+
+  // Act on scheduled recipients: pull back to pending, or delete the mail.
+  async function recipientAction(ids: string[], action: "pending" | "delete") {
+    if (
+      action === "delete" &&
+      !window.confirm(
+        `Delete ${ids.length} scheduled email${ids.length === 1 ? "" : "s"}? This removes the recipient${ids.length === 1 ? "" : "s"} from the campaign.`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setSending(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/recipients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientIds: ids, action }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Action failed");
+      setNotice(
+        action === "pending"
+          ? `${json.updated} moved back to pending`
+          : `${json.deleted} scheduled email${json.deleted === 1 ? "" : "s"} deleted`
+      );
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -1179,6 +1213,38 @@ export default function CampaignPage({
         </span>
       </div>
 
+      {(() => {
+        const scheduledIds = visibleRecipients
+          .filter((r) => r.status === "scheduled")
+          .map((r) => r.id);
+        if (scheduledIds.length < 2) return null;
+        return (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+            <span>
+              {scheduledIds.length} scheduled email
+              {scheduledIds.length === 1 ? "" : "s"} shown
+            </span>
+            <span className="flex-1" />
+            <button
+              onClick={() => recipientAction(scheduledIds, "pending")}
+              disabled={sending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-40"
+            >
+              <RotateCcw size={13} />
+              All to pending
+            </button>
+            <button
+              onClick={() => recipientAction(scheduledIds, "delete")}
+              disabled={sending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+            >
+              <Trash2 size={13} />
+              Delete all
+            </button>
+          </div>
+        );
+      })()}
+
       <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500">
@@ -1196,6 +1262,7 @@ export default function CampaignPage({
               <th className="hidden px-4 py-3 font-medium md:table-cell">
                 Replied
               </th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1236,12 +1303,36 @@ export default function CampaignPage({
                 <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
                   {r.repliedAt ? new Date(r.repliedAt).toLocaleString() : "-"}
                 </td>
+                <td className="px-4 py-3">
+                  {r.status === "scheduled" ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => recipientAction([r.id], "pending")}
+                        disabled={sending}
+                        title="Move back to pending (won't send until rescheduled)"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                      <button
+                        onClick={() => recipientAction([r.id], "delete")}
+                        disabled={sending}
+                        title="Delete this scheduled email"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="block text-right text-slate-300">-</span>
+                  )}
+                </td>
               </tr>
             ))}
             {visibleRecipients.length === 0 && (
               <tr>
                 <td
-                  colSpan={campaign.hasVariantB ? 5 : 4}
+                  colSpan={campaign.hasVariantB ? 6 : 5}
                   className="px-4 py-10 text-center text-sm text-slate-500"
                 >
                   No recipients match this filter.
