@@ -15,6 +15,7 @@ import { lintContent } from "@/lib/linter";
 import { signatureFor } from "@/lib/senders";
 import { canSendAs } from "@/lib/scope";
 import { isAdminEmail } from "@/lib/admin";
+import { getAccess, forbidden } from "@/lib/roles";
 
 const bodySchema = z.object({
   name: z.string().min(1).max(200),
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

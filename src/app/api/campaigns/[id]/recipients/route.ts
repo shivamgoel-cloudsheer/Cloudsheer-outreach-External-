@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients } from "@/db/schema";
 import { campaignScope } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 
 const schema = z.object({
   recipientIds: z.array(z.string().uuid()).min(1).max(5000),
@@ -22,6 +23,7 @@ export async function POST(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const { id } = await params;
   const access = await campaignScope(session.user);

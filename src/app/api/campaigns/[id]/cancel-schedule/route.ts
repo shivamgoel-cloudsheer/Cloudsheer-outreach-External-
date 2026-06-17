@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients } from "@/db/schema";
 import { campaignScope } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 
 /**
  * Cancelling a scheduled campaign is now a pure DB operation: undispatched
@@ -17,6 +18,7 @@ export async function POST(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const { id } = await params;
 

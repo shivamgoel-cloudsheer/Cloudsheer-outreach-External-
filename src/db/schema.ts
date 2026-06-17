@@ -26,9 +26,56 @@ export const users = pgTable("user", {
   // bcrypt hash for client (non-cloudsheer.com) password logins. Null for
   // Google-only accounts, which authenticate through the OAuth provider.
   passwordHash: text("password_hash"),
+  // Role within this user's domain workspace: admin | editor | viewer |
+  // analyst. Null means no workspace access (removed, or never joined).
+  // cloudsheer.com super-admins ignore this column (see lib/admin.ts).
+  role: text("role").$type<WorkspaceRole>(),
   // Throttle for the reply-detection poller
   lastReplyCheckAt: timestamp("last_reply_check_at"),
 });
+
+// ---------------------------------------------------------------------------
+// Workspaces & invitations. A workspace IS an email domain: the first user
+// from a domain claims it and becomes its admin; everyone else joins by
+// invitation only. Campaign visibility is still domain-scoped (lib/scope.ts);
+// roles layer on top to control what each member may do (lib/roles.ts).
+// ---------------------------------------------------------------------------
+
+export type WorkspaceRole = "admin" | "editor" | "viewer" | "analyst";
+export type InvitationStatus = "pending" | "accepted" | "revoked";
+
+export const workspaces = pgTable("workspace", {
+  // Lowercased email domain, e.g. "acme.in".
+  domain: text("domain").primaryKey(),
+  name: text("name").notNull(),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const invitations = pgTable(
+  "invitation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Lowercased invitee email; the invite is consumed on first sign-in.
+    email: text("email").notNull(),
+    domain: text("domain").notNull(),
+    role: text("role").$type<WorkspaceRole>().notNull(),
+    token: text("token").notNull().unique(),
+    invitedBy: text("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    status: text("status").$type<InvitationStatus>().notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at"),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [
+    index("invitation_email_idx").on(t.email),
+    index("invitation_domain_idx").on(t.domain),
+  ]
+);
 
 export const accounts = pgTable(
   "account",

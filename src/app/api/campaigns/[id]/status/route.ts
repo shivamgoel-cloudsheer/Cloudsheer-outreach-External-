@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { campaigns, recipients, sequenceSteps, users } from "@/db/schema";
 import { processUser } from "@/lib/processor";
 import { campaignScope } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 
 // While the dashboard is open, opportunistically run the background
 // processor (replies, follow-ups, sheet sync) at most every 10 minutes.
@@ -18,6 +19,8 @@ export async function GET(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  const access = await getAccess(session);
+  if (!access.can.viewCampaigns) return forbidden();
   const userId = session.user.id;
   const scope = await campaignScope(session.user);
 
@@ -98,5 +101,6 @@ export async function GET(
     counts,
     recipients: rows,
     lastReplyCheckAt: user?.lastReplyCheckAt ?? null,
+    canEdit: access.can.editCampaigns,
   });
 }

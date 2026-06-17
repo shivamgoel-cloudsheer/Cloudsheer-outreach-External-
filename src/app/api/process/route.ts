@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { accounts } from "@/db/schema";
 import { processUser } from "@/lib/processor";
 import { dispatchDue } from "@/lib/dispatch";
+import { getAccess, forbidden } from "@/lib/roles";
 
 export const maxDuration = 300;
 
@@ -13,6 +14,7 @@ export async function POST() {
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.viewCampaigns) return forbidden();
 
   // Dashboard polls double as a dispatch trigger, so due emails go out even
   // between cron pings while someone is watching a campaign.

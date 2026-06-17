@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
+import { decideWorkspaceJoin, provisionWorkspaceJoin } from "@/lib/roles";
 
 // Cold-email clients (any non-cloudsheer.com domain) sign in with their email
 // as the user id plus a password. cloudsheer.com staff use Google instead, so
@@ -61,10 +62,23 @@ export async function createPasswordUser(
     );
   }
 
+  // Invite-only workspaces: the first user of a domain claims it as admin;
+  // everyone else needs a pending invitation. Decide before creating the row.
+  const decision = await decideWorkspaceJoin(normalized);
+  if (!decision.allowed) {
+    throw new PasswordSignupError(decision.reason ?? "You can't sign up yet.");
+  }
+
   const passwordHash = await hashPassword(password);
-  await db.insert(users).values({
-    email: normalized,
-    name: normalized.split("@")[0],
-    passwordHash,
-  });
+  const [created] = await db
+    .insert(users)
+    .values({
+      email: normalized,
+      name: normalized.split("@")[0],
+      passwordHash,
+      role: decision.role,
+    })
+    .returning({ id: users.id });
+
+  await provisionWorkspaceJoin(created.id, normalized, decision);
 }

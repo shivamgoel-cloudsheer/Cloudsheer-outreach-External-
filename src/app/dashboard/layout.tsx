@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { LogOut, AlertTriangle, Link2 } from "lucide-react";
+import { LogOut, AlertTriangle, Link2, ShieldX } from "lucide-react";
 import { auth, signIn, signOut } from "@/auth";
 import { Logo } from "@/components/ui";
 import { getSenderAccount, hasSendScope } from "@/lib/google";
+import { getAccess } from "@/lib/roles";
 
 export default async function DashboardLayout({
   children,
@@ -16,13 +17,50 @@ export default async function DashboardLayout({
     redirect("/");
   }
 
-  // Sending goes through each sender's own Gmail. A password (client) user has
-  // no Google linked yet and must connect it before sending; a user whose
-  // stored grant predates gmail.send needs to re-connect.
+  const access = await getAccess(session);
+
+  // A signed-in user with no role and no super-admin status was removed from
+  // their workspace (or never provisioned). Show a dead-end with sign-out
+  // rather than redirecting (the landing page would bounce them back here).
+  if (!access.isSuperAdmin && !access.role) {
+    return (
+      <main className="flex min-h-screen flex-1 items-center justify-center bg-slate-50 px-6">
+        <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <ShieldX size={22} />
+          </div>
+          <h1 className="mt-4 text-lg font-semibold text-slate-900">
+            No workspace access
+          </h1>
+          <p className="mt-1.5 text-sm text-slate-500">
+            Your access to this workspace has been removed. Ask an admin to
+            invite you again.
+          </p>
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/" });
+            }}
+          >
+            <button
+              type="submit"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              <LogOut size={14} />
+              Sign out
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // Sending goes through each sender's own Gmail. Only members who can send
+  // (admin/editor) need Google connected; viewers/analysts don't.
   const ownAccount = session.user.email
     ? await getSenderAccount(session.user.email)
     : null;
-  const needsConnect = !ownAccount;
+  const needsConnect = !ownAccount && access.can.sendCampaigns;
   const needsRelink = !!ownAccount && !hasSendScope(ownAccount.scope);
 
   return (
@@ -37,24 +75,38 @@ export default async function DashboardLayout({
               </span>
             </Link>
             <nav className="hidden items-center gap-4 text-sm sm:flex">
-              <Link
-                href="/dashboard"
-                className="text-slate-500 transition hover:text-slate-900"
-              >
-                Campaigns
-              </Link>
-              <Link
-                href="/dashboard/analytics"
-                className="text-slate-500 transition hover:text-slate-900"
-              >
-                Analytics
-              </Link>
-              <Link
-                href="/dashboard/senders"
-                className="text-slate-500 transition hover:text-slate-900"
-              >
-                Mailboxes
-              </Link>
+              {access.can.viewCampaigns && (
+                <Link
+                  href="/dashboard"
+                  className="text-slate-500 transition hover:text-slate-900"
+                >
+                  Campaigns
+                </Link>
+              )}
+              {access.can.viewAnalytics && (
+                <Link
+                  href="/dashboard/analytics"
+                  className="text-slate-500 transition hover:text-slate-900"
+                >
+                  Analytics
+                </Link>
+              )}
+              {access.can.editCampaigns && (
+                <Link
+                  href="/dashboard/senders"
+                  className="text-slate-500 transition hover:text-slate-900"
+                >
+                  Mailboxes
+                </Link>
+              )}
+              {access.can.manageMembers && (
+                <Link
+                  href="/dashboard/members"
+                  className="text-slate-500 transition hover:text-slate-900"
+                >
+                  Team
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-3">

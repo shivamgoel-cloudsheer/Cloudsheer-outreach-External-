@@ -25,6 +25,7 @@ import {
 } from "@/lib/google";
 import { dispatchDue } from "@/lib/dispatch";
 import { campaignScope, canSendAs } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 
 export const maxDuration = 300;
 
@@ -90,6 +91,7 @@ export async function POST(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.sendCampaigns) return forbidden();
 
   const { id } = await params;
 

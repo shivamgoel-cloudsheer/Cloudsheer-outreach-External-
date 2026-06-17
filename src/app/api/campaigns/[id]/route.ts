@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { campaigns, type StoredStaggerConfig } from "@/db/schema";
 import { isValidTimeZone } from "@/lib/timezone";
 import { campaignScope } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 
 const MAX_DAILY_CAP = 100;
 
@@ -35,6 +36,7 @@ export async function PATCH(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const { id } = await params;
 
@@ -110,6 +112,7 @@ export async function DELETE(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const { id } = await params;
 

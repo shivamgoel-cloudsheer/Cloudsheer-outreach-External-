@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { desc, inArray, sql } from "drizzle-orm";
 import {
   ChevronRight,
@@ -14,12 +15,18 @@ import { db } from "@/db";
 import { campaigns, recipients, users } from "@/db/schema";
 import { StatusChip } from "@/components/ui";
 import { visibleUserIds } from "@/lib/scope";
+import { getAccess } from "@/lib/roles";
 import { getSender } from "@/lib/senders";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await auth();
+  const access = await getAccess(session!);
+  // Analysts have no campaign access; send them to the analytics page.
+  if (!access.can.viewCampaigns) redirect("/dashboard/analytics");
+  const canEdit = access.can.editCampaigns;
+
   // Admins (cloudsheer.com) see every campaign; clients see every campaign
   // owned by anyone on their own email domain.
   const ids = await visibleUserIds(session!.user);
@@ -127,13 +134,15 @@ export default async function DashboardPage() {
             Welcome back{session!.user.name ? `, ${session!.user.name.split(" ")[0]}` : ""}
           </p>
         </div>
-        <Link
-          href="/dashboard/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-linear-to-br from-sky-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110"
-        >
-          <Plus size={16} />
-          New campaign
-        </Link>
+        {canEdit && (
+          <Link
+            href="/dashboard/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-linear-to-br from-sky-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110"
+          >
+            <Plus size={16} />
+            New campaign
+          </Link>
+        )}
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -162,16 +171,19 @@ export default async function DashboardPage() {
             No campaigns yet
           </p>
           <p className="mx-auto mt-1.5 max-w-sm text-sm text-slate-500">
-            Create your first one from a Google Sheet with Name, Email, and
-            content columns.
+            {canEdit
+              ? "Create your first one from a Google Sheet with Name, Email, and content columns."
+              : "Campaigns your team creates will show up here."}
           </p>
-          <Link
-            href="/dashboard/new"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-          >
-            <Plus size={15} />
-            Create campaign
-          </Link>
+          {canEdit && (
+            <Link
+              href="/dashboard/new"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+            >
+              <Plus size={15} />
+              Create campaign
+            </Link>
+          )}
         </div>
       ) : (
         <ul className="mt-6 space-y-3">

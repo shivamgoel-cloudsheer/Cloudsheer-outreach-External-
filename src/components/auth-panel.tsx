@@ -38,8 +38,14 @@ const INPUT_CLASS =
 const TAB_BASE =
   "flex-1 rounded-lg py-1.5 text-sm font-medium transition";
 
-export function AuthPanel() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+export function AuthPanel({
+  defaultEmail,
+  defaultMode = "login",
+}: {
+  defaultEmail?: string;
+  defaultMode?: "login" | "signup";
+} = {}) {
+  const [mode, setMode] = useState<"login" | "signup">(defaultMode);
   const [loginState, loginAction, loginPending] = useActionState<
     AuthState,
     FormData
@@ -101,6 +107,7 @@ export function AuthPanel() {
             type="email"
             autoComplete="email"
             required
+            defaultValue={defaultEmail}
             placeholder="you@company.com"
             className={`mt-1 ${INPUT_CLASS}`}
           />

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients } from "@/db/schema";
 import { campaignScope } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 import { getAccessTokenForSender } from "@/lib/google";
 import { fetchMessageBody, findRepliesFrom } from "@/lib/gmail";
 import { DEFAULT_FROM_ADDRESS, emailFromAddress } from "@/lib/senders";
@@ -17,6 +18,8 @@ export async function GET(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+
+  if (!(await getAccess(session)).can.viewCampaigns) return forbidden();
 
   const { id, recipientId } = await params;
   const scope = await campaignScope(session.user);

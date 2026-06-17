@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients, sequenceSteps } from "@/db/schema";
 import { campaignScope, type Viewer } from "@/lib/scope";
+import { getAccess, forbidden } from "@/lib/roles";
 import { getValidAccessToken } from "@/lib/google";
 import { fetchSheetRows, parseSheetUrl } from "@/lib/sheets";
 
@@ -96,6 +97,8 @@ export async function POST(
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
 
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
+
   const { id } = await params;
   const campaign = await accessibleCampaign(id, session.user);
   if (!campaign) {
@@ -167,6 +170,8 @@ export async function DELETE(
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const { id } = await params;
   const campaign = await accessibleCampaign(id, session.user);

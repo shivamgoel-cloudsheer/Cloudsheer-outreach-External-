@@ -73,6 +73,7 @@ type CampaignStatusResponse = {
     error: string | null;
   }[];
   lastReplyCheckAt: string | null;
+  canEdit: boolean;
 };
 
 type ReplyView = {
@@ -528,6 +529,9 @@ export default function CampaignPage({
   }
 
   const { campaign, steps, counts, recipients } = data;
+  // Viewers get a read-only view: editing/sending controls are hidden (and the
+  // API rejects them anyway). Admins/editors get the full controls.
+  const canEdit = data.canEdit;
 
   const replied = counts.replied ?? 0;
   // Resend-era statuses still count as reached for historical campaigns
@@ -608,7 +612,7 @@ export default function CampaignPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {campaign.status !== "draft" && (
+          {canEdit && campaign.status !== "draft" && (
             <button
               onClick={runProcess}
               disabled={processing}
@@ -624,7 +628,7 @@ export default function CampaignPage({
             </button>
           )}
 
-          {(campaign.status === "draft" || campaign.status === "failed") && (
+          {canEdit && (campaign.status === "draft" || campaign.status === "failed") && (
             <>
               {showSchedule ? (
                 <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-xl sm:w-auto">
@@ -887,27 +891,38 @@ export default function CampaignPage({
                     })
                   : "Scheduled"}
               </span>
-              <button
-                onClick={cancelSchedule}
-                disabled={sending}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-40"
-              >
-                <X size={14} />
-                {sending ? "Cancelling..." : "Cancel"}
-              </button>
+              {canEdit && (
+                <button
+                  onClick={cancelSchedule}
+                  disabled={sending}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+                >
+                  <X size={14} />
+                  {sending ? "Cancelling..." : "Cancel"}
+                </button>
+              )}
             </div>
           )}
 
-          <button
-            onClick={deleteCampaign}
-            disabled={sending}
-            title="Delete campaign"
-            className="rounded-xl border border-slate-300 bg-white p-2.5 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
-          >
-            <Trash2 size={15} />
-          </button>
+          {canEdit && (
+            <button
+              onClick={deleteCampaign}
+              disabled={sending}
+              title="Delete campaign"
+              className="rounded-xl border border-slate-300 bg-white p-2.5 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
         </div>
       </div>
+
+      {!canEdit && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500">
+          You have view-only access to this workspace. Campaign settings and
+          sending are managed by editors and admins.
+        </div>
+      )}
 
       {notice && (
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
@@ -991,7 +1006,7 @@ export default function CampaignPage({
             <ListPlus size={15} className="text-sky-500" />
             <h2 className="text-sm font-semibold text-slate-900">Follow-up sequence</h2>
           </div>
-          {!showAddStep && steps.length < 5 && (
+          {canEdit && !showAddStep && steps.length < 5 && (
             <button
               onClick={() => setShowAddStep(true)}
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
@@ -1038,19 +1053,21 @@ export default function CampaignPage({
                     {s.bodyTemplate}
                   </p>
                 </div>
-                <button
-                  onClick={() => removeStep(s.id)}
-                  title="Remove step"
-                  className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => removeStep(s.id)}
+                    title="Remove step"
+                    className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </li>
             ))}
           </ol>
         )}
 
-        {showAddStep && (
+        {canEdit && showAddStep && (
           <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
             {/* When to send: relative days OR an exact date/time */}
             <div className="space-y-2">
@@ -1246,6 +1263,7 @@ export default function CampaignPage({
       </div>
 
       {(() => {
+        if (!canEdit) return null;
         const scheduledIds = visibleRecipients
           .filter((r) => r.status === "scheduled")
           .map((r) => r.id);
@@ -1342,7 +1360,7 @@ export default function CampaignPage({
                   {r.repliedAt ? new Date(r.repliedAt).toLocaleString() : "-"}
                 </td>
                 <td className="px-4 py-3">
-                  {r.status === "scheduled" ? (
+                  {r.status === "scheduled" && canEdit ? (
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => recipientAction([r.id], "pending")}

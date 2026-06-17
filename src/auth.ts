@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { findUserByEmail, verifyPassword } from "@/lib/password";
 import { isAdminEmail } from "@/lib/admin";
+import { decideWorkspaceJoin, provisionWorkspaceJoin } from "@/lib/roles";
 
 declare module "next-auth" {
   interface Session {
@@ -79,6 +80,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user?.passwordHash) return null;
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
+        // No role = removed from the workspace (or never provisioned); block.
+        if (!user.role) return null;
         return {
           id: user.id,
           email: user.email,
@@ -89,6 +92,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    // Invite-only workspaces: block a Google sign-in whose email isn't a
+    // super-admin, an existing member, the first user of an unclaimed domain,
+    // or the holder of a pending invite. Credentials are gated in authorize().
+    async signIn({ account, user }) {
+      if (account?.provider !== "google") return true;
+      const email = user?.email;
+      if (!email) return false;
+      const decision = await decideWorkspaceJoin(email);
+      return decision.allowed;
+    },
     // Carry the user id on the token (set on first sign-in for both providers)
     // and expose it on the session, matching the previous database-session API.
     jwt({ token, user }) {
@@ -106,8 +119,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // The Drizzle adapter only writes the account row on first link; on later
     // sign-ins the fresh tokens/scope (e.g. a newly granted gmail.send) would
     // be dropped without this upsert.
-    async signIn({ account }) {
-      if (account?.provider !== "google" || !account.access_token) return;
+    async signIn({ user, account }) {
+      if (account?.provider !== "google") return;
+
+      // Provision workspace + role for the (allowed) Google user: claim the
+      // domain as the first user, or apply a pending invite's role. Idempotent
+      // for returning members and a no-op for super-admins.
+      if (user?.id && user.email) {
+        const decision = await decideWorkspaceJoin(user.email);
+        if (decision.allowed) {
+          await provisionWorkspaceJoin(user.id, user.email, decision);
+        }
+      }
+
+      if (!account.access_token) return;
       await db
         .update(accounts)
         .set({

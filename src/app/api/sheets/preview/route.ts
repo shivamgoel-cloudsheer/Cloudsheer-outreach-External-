@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getValidAccessToken } from "@/lib/google";
 import { fetchSheetRows, fetchSheetTabs, parseSheetUrl } from "@/lib/sheets";
+import { getAccess, forbidden } from "@/lib/roles";
 
 const bodySchema = z.object({
   sheetUrl: z.string().min(1),
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
+  if (!(await getAccess(session)).can.editCampaigns) return forbidden();
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
