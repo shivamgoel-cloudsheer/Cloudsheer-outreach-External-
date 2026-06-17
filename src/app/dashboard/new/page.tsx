@@ -92,22 +92,30 @@ export default function NewCampaignPage() {
     email: string;
     sendReady: boolean;
   } | null>(null);
+  // Sender mailboxes returned by the API, already scoped to the viewer's
+  // workspace domain (clients never receive cloudsheer mailboxes here).
+  const [apiSenders, setApiSenders] = useState<
+    { name: string; email: string }[]
+  >([]);
 
   useEffect(() => {
     fetch("/api/senders/status", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (!json?.senders) return;
+        const apiList = json.senders as {
+          name: string;
+          email: string;
+          linked: boolean;
+          sendReady: boolean;
+        }[];
+        setApiSenders(apiList.map((s) => ({ name: s.name, email: s.email })));
         const map = new Map<string, { linked: boolean; sendReady: boolean }>(
-          (json.senders as {
-            email: string;
-            linked: boolean;
-            sendReady: boolean;
-          }[]).map((s) => [s.email, s])
+          apiList.map((s) => [s.email, s])
         );
         if (
           json.me?.email &&
-          !SENDERS.some(
+          !apiList.some(
             (s) => s.email.toLowerCase() === json.me.email.toLowerCase()
           )
         ) {
@@ -123,8 +131,10 @@ export default function NewCampaignPage() {
           // The signed-in user isn't a preset sender (e.g. a client on their
           // own domain), so default the From to their own mailbox rather than
           // a cloudsheer.com address they aren't allowed to send as.
+          const meName = json.me.name || json.me.email.split("@")[0];
           setFromEmail(json.me.email);
-          setFromName(json.me.name || json.me.email.split("@")[0]);
+          setFromName(meName);
+          setSignature(defaultSignature(meName));
         }
         setSenderStatus(map);
       })
@@ -218,18 +228,27 @@ export default function NewCampaignPage() {
     }
   }
 
-  // Preset senders plus the signed-in user's own mailbox (any cloudsheer.com
-  // login), so anyone on the team can send from their own inbox.
-  const senderOptions = me
-    ? [
-        ...SENDERS,
-        {
-          name: me.name || me.email.split("@")[0],
-          email: me.email,
-          signature: defaultSignature(me.name || me.email.split("@")[0]),
-        },
-      ]
-    : SENDERS;
+  // From options come straight from the API, which scopes them to the viewer's
+  // workspace domain - so a client only ever sees its own domain's mailboxes,
+  // never cloudsheer's. The signed-in user's own mailbox is appended if missing.
+  const senderOptions = (() => {
+    const opts = apiSenders.map((s) => ({
+      name: s.name || s.email.split("@")[0],
+      email: s.email,
+      signature: defaultSignature(s.name || s.email.split("@")[0]),
+    }));
+    if (
+      me &&
+      !opts.some((o) => o.email.toLowerCase() === me.email.toLowerCase())
+    ) {
+      opts.push({
+        name: me.name || me.email.split("@")[0],
+        email: me.email,
+        signature: defaultSignature(me.name || me.email.split("@")[0]),
+      });
+    }
+    return opts;
+  })();
 
   const canCompose = !!preview?.emailColumn;
   const canReview = !!(name.trim() && subject.trim() && body.trim());

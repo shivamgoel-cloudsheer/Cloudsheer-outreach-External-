@@ -11,21 +11,30 @@ import { db } from "@/db";
 import { users, accounts } from "@/db/schema";
 import { hasSendScope } from "@/lib/google";
 import { allowedSenderDomains } from "@/lib/senders";
+import { getAccess } from "@/lib/roles";
+import { emailDomain } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
 export default async function SendersPage() {
-  await auth(); // layout already redirects unauthenticated users
+  const session = await auth(); // layout already redirects unauthenticated users
+  const access = await getAccess(session!);
 
   // Every Google account that has signed in is a "connected mailbox". It can
   // send once its grant includes the gmail.send scope.
-  const rows = await db
+  const allRows = await db
     .select({ email: users.email, name: users.name, scope: accounts.scope })
     .from(users)
     .innerJoin(
       accounts,
       and(eq(accounts.userId, users.id), eq(accounts.provider, "google"))
     );
+
+  // Scope to the viewer's own domain so a client never sees another tenant's
+  // (e.g. cloudsheer's) mailboxes. Super-admins see every domain.
+  const rows = access.isSuperAdmin
+    ? allRows
+    : allRows.filter((r) => emailDomain(r.email) === access.domain);
 
   type Box = { email: string; name: string | null; sendReady: boolean };
   const byDomain = new Map<string, Box[]>();
