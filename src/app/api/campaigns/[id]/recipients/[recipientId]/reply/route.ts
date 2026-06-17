@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
+import { campaignScope } from "@/lib/scope";
 import { getAccessTokenForSender } from "@/lib/google";
 import { fetchMessageBody, findRepliesFrom } from "@/lib/gmail";
 import { DEFAULT_FROM_ADDRESS, emailFromAddress } from "@/lib/senders";
@@ -19,17 +19,12 @@ export async function GET(
   }
 
   const { id, recipientId } = await params;
-  const admin = isAdminEmail(session.user.email);
+  const scope = await campaignScope(session.user);
 
   const [campaign] = await db
     .select({ id: campaigns.id, fromAddress: campaigns.fromAddress })
     .from(campaigns)
-    .where(
-      and(
-        eq(campaigns.id, id),
-        ...(admin ? [] : [eq(campaigns.userId, session.user.id)])
-      )
-    );
+    .where(and(eq(campaigns.id, id), ...scope));
   if (!campaign) {
     return Response.json({ error: "Campaign not found" }, { status: 404 });
   }

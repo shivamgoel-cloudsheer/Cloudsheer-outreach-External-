@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { LogOut, AlertTriangle } from "lucide-react";
+import { LogOut, AlertTriangle, Link2 } from "lucide-react";
 import { auth, signIn, signOut } from "@/auth";
 import { Logo } from "@/components/ui";
 import { getSenderAccount, hasSendScope } from "@/lib/google";
@@ -16,11 +16,13 @@ export default async function DashboardLayout({
     redirect("/");
   }
 
-  // Sending goes through each sender's own Gmail; warn when the signed-in
-  // user's stored grant predates the gmail.send scope.
+  // Sending goes through each sender's own Gmail. A password (client) user has
+  // no Google linked yet and must connect it before sending; a user whose
+  // stored grant predates gmail.send needs to re-connect.
   const ownAccount = session.user.email
     ? await getSenderAccount(session.user.email)
     : null;
+  const needsConnect = !ownAccount;
   const needsRelink = !!ownAccount && !hasSendScope(ownAccount.scope);
 
   return (
@@ -94,6 +96,30 @@ export default async function DashboardLayout({
           </div>
         </div>
       </header>
+      {needsConnect && (
+        <div className="border-b border-indigo-200 bg-indigo-50">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-2.5">
+            <p className="flex items-center gap-2 text-xs text-indigo-800">
+              <Link2 size={14} className="shrink-0" />
+              Connect your Google account to send campaigns from your own Gmail
+              and read your Google Sheets.
+            </p>
+            <form
+              action={async () => {
+                "use server";
+                await signIn("google", { redirectTo: "/dashboard" });
+              }}
+            >
+              <button
+                type="submit"
+                className="whitespace-nowrap rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium text-indigo-800 transition hover:bg-indigo-100"
+              >
+                Connect Google
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
       {needsRelink && (
         <div className="border-b border-amber-200 bg-amber-50">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-2.5">

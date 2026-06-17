@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients, sequenceSteps } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
+import { campaignScope, type Viewer } from "@/lib/scope";
 import { getValidAccessToken } from "@/lib/google";
 import { fetchSheetRows, parseSheetUrl } from "@/lib/sheets";
 
@@ -77,16 +77,13 @@ async function refreshRecipientData(
 
 const removeSchema = z.object({ stepId: z.string().uuid() });
 
-// Managers (admin) may edit any campaign's steps; everyone else only their own.
-async function ownedCampaign(id: string, userId: string, admin: boolean) {
+// Admins may edit any campaign's steps; clients only those on their own domain.
+async function accessibleCampaign(id: string, viewer: Viewer) {
+  const scope = await campaignScope(viewer);
   const [campaign] = await db
     .select()
     .from(campaigns)
-    .where(
-      admin
-        ? eq(campaigns.id, id)
-        : and(eq(campaigns.id, id), eq(campaigns.userId, userId))
-    );
+    .where(and(eq(campaigns.id, id), ...scope));
   return campaign ?? null;
 }
 
@@ -100,11 +97,7 @@ export async function POST(
   }
 
   const { id } = await params;
-  const campaign = await ownedCampaign(
-    id,
-    session.user.id,
-    isAdminEmail(session.user.email)
-  );
+  const campaign = await accessibleCampaign(id, session.user);
   if (!campaign) {
     return Response.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -176,11 +169,7 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const campaign = await ownedCampaign(
-    id,
-    session.user.id,
-    isAdminEmail(session.user.email)
-  );
+  const campaign = await accessibleCampaign(id, session.user);
   if (!campaign) {
     return Response.json({ error: "Campaign not found" }, { status: 404 });
   }

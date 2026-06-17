@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
+import { campaignScope } from "@/lib/scope";
 
 const schema = z.object({
   recipientIds: z.array(z.string().uuid()).min(1).max(5000),
@@ -24,16 +24,11 @@ export async function POST(
   }
 
   const { id } = await params;
-  const admin = isAdminEmail(session.user.email);
+  const access = await campaignScope(session.user);
   const [campaign] = await db
     .select({ id: campaigns.id })
     .from(campaigns)
-    .where(
-      and(
-        eq(campaigns.id, id),
-        ...(admin ? [] : [eq(campaigns.userId, session.user.id)])
-      )
-    );
+    .where(and(eq(campaigns.id, id), ...access));
   if (!campaign) {
     return Response.json({ error: "Campaign not found" }, { status: 404 });
   }

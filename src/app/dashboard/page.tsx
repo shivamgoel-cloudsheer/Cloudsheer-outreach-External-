@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { desc, inArray, sql } from "drizzle-orm";
 import {
   ChevronRight,
   Clock,
@@ -13,27 +13,28 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients, users } from "@/db/schema";
 import { StatusChip } from "@/components/ui";
-import { isAdminEmail } from "@/lib/admin";
+import { visibleUserIds } from "@/lib/scope";
 import { getSender } from "@/lib/senders";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await auth();
-  const userId = session!.user.id;
-  // Managers (ADMIN_EMAILS) see every campaign; everyone else sees their own.
-  const admin = isAdminEmail(session!.user.email);
+  // Admins (cloudsheer.com) see every campaign; clients see every campaign
+  // owned by anyone on their own email domain.
+  const ids = await visibleUserIds(session!.user);
+  const showOwners = ids === null || ids.length > 1;
 
   const list = await db
     .select()
     .from(campaigns)
-    .where(admin ? undefined : eq(campaigns.userId, userId))
+    .where(ids === null ? undefined : inArray(campaigns.userId, ids))
     .orderBy(desc(campaigns.createdAt));
 
-  // In manager view, label each campaign with who created it. Prefer the
-  // friendly sender name (Tushar/Bharat/...), then the Google name, then email.
+  // When more than one owner is visible, label each campaign with who created
+  // it. Prefer the friendly sender name, then the Google name, then email.
   const ownerLabelById = new Map<string, string>();
-  if (admin && list.length > 0) {
+  if (showOwners && list.length > 0) {
     const ownerIds = [...new Set(list.map((c) => c.userId))];
     const owners = await db
       .select({ id: users.id, name: users.name, email: users.email })
@@ -191,7 +192,7 @@ export default async function DashboardPage() {
                       <div className="flex flex-wrap items-center gap-2.5">
                         <p className="truncate font-medium text-slate-900">{campaign.name}</p>
                         <StatusChip status={campaign.status} />
-                        {admin && ownerLabelById.get(campaign.userId) && (
+                        {showOwners && ownerLabelById.get(campaign.userId) && (
                           <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">
                             by {ownerLabelById.get(campaign.userId)}
                           </span>

@@ -23,6 +23,9 @@ export const users = pgTable("user", {
   email: text("email").unique(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
+  // bcrypt hash for client (non-cloudsheer.com) password logins. Null for
+  // Google-only accounts, which authenticate through the OAuth provider.
+  passwordHash: text("password_hash"),
   // Throttle for the reply-detection poller
   lastReplyCheckAt: timestamp("last_reply_check_at"),
 });

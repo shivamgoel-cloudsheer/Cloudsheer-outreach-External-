@@ -13,6 +13,8 @@ import {
 import { findUnknownPlaceholders } from "@/lib/template";
 import { lintContent } from "@/lib/linter";
 import { signatureFor } from "@/lib/senders";
+import { canSendAs } from "@/lib/scope";
+import { isAdminEmail } from "@/lib/admin";
 
 const bodySchema = z.object({
   name: z.string().min(1).max(200),
@@ -53,11 +55,27 @@ export async function POST(request: Request) {
 
   // Strip characters that could break the From header (newlines, angle
   // brackets, commas) before composing "Name <email>".
-  const fromEmail =
+  let fromEmail =
     parsed.data.fromEmail?.trim().toLowerCase().replace(/[\r\n<>,]/g, "") ||
     null;
-  const fromName =
+  let fromName =
     parsed.data.fromName?.trim().replace(/[\r\n<>]/g, "") || null;
+
+  // Multi-tenant guard: clients may only send from a mailbox on their own
+  // domain. An empty From defaults to the client's own address (not the
+  // cloudsheer.com default, which they can't send as). Admins are unrestricted.
+  if (!isAdminEmail(session.user.email)) {
+    if (!fromEmail) {
+      fromEmail = session.user.email?.toLowerCase() ?? null;
+      fromName = fromName ?? session.user.name ?? null;
+    } else if (!canSendAs(session.user, fromEmail)) {
+      return Response.json(
+        { error: "You can only send from a mailbox on your own domain." },
+        { status: 403 }
+      );
+    }
+  }
+
   const fromAddress = fromEmail
     ? fromName
       ? `${fromName} <${fromEmail}>`

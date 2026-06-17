@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients, sequenceSteps, users } from "@/db/schema";
 import { processUser } from "@/lib/processor";
-import { isAdminEmail } from "@/lib/admin";
+import { campaignScope } from "@/lib/scope";
 
 // While the dashboard is open, opportunistically run the background
 // processor (replies, follow-ups, sheet sync) at most every 10 minutes.
@@ -19,18 +19,14 @@ export async function GET(
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
   const userId = session.user.id;
-  const admin = isAdminEmail(session.user.email);
+  const scope = await campaignScope(session.user);
 
   const { id } = await params;
 
   const [campaign] = await db
     .select()
     .from(campaigns)
-    .where(
-      admin
-        ? eq(campaigns.id, id)
-        : and(eq(campaigns.id, id), eq(campaigns.userId, userId))
-    );
+    .where(and(eq(campaigns.id, id), ...scope));
 
   if (!campaign) {
     return Response.json({ error: "Campaign not found" }, { status: 404 });

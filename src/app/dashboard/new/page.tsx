@@ -120,6 +120,11 @@ export default function NewCampaignPage() {
             linked: true,
             sendReady: !!json.me.sendReady,
           });
+          // The signed-in user isn't a preset sender (e.g. a client on their
+          // own domain), so default the From to their own mailbox rather than
+          // a cloudsheer.com address they aren't allowed to send as.
+          setFromEmail(json.me.email);
+          setFromName(json.me.name || json.me.email.split("@")[0]);
         }
         setSenderStatus(map);
       })

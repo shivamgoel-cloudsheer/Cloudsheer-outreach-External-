@@ -24,7 +24,7 @@ import {
   hasSendScope,
 } from "@/lib/google";
 import { dispatchDue } from "@/lib/dispatch";
-import { isAdminEmail } from "@/lib/admin";
+import { campaignScope, canSendAs } from "@/lib/scope";
 
 export const maxDuration = 300;
 
@@ -137,11 +137,8 @@ export async function POST(
     base = at;
   }
 
-  // Managers can run anyone's campaign; everyone else only their own.
-  const admin = isAdminEmail(session.user.email);
-  const ownsClause = admin
-    ? []
-    : [eq(campaigns.userId, session.user.id)];
+  // Admins can run any campaign; clients only those on their own domain.
+  const ownsClause = await campaignScope(session.user);
 
   // Sends go out through the sender's own Gmail, so the sender mailbox must
   // be linked with send permission before anything is scheduled.
@@ -155,6 +152,13 @@ export async function POST(
   const senderEmail = emailFromAddress(
     precheck.fromAddress ?? DEFAULT_FROM_ADDRESS
   );
+  // Multi-tenant guard: a client can only send as a mailbox on its own domain.
+  if (!canSendAs(session.user, senderEmail)) {
+    return Response.json(
+      { error: "You can only send from a mailbox on your own domain." },
+      { status: 403 }
+    );
+  }
   const senderAccount = await getSenderAccount(senderEmail);
   if (!senderAccount) {
     return Response.json(

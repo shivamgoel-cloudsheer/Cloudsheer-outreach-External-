@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -9,6 +10,8 @@ import {
   sessions,
   verificationTokens,
 } from "@/db/schema";
+import { findUserByEmail, verifyPassword } from "@/lib/password";
+import { isAdminEmail } from "@/lib/admin";
 
 declare module "next-auth" {
   interface Session {
@@ -35,12 +38,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  session: { strategy: "database" },
+  // JWT sessions are required for the Credentials (email + password) provider;
+  // the Google/Gmail/Sheets tokens still live in the accounts table via the
+  // adapter, so server-side API calls are unaffected.
+  session: { strategy: "jwt" },
   // Sign-in and sign-up happen only on the landing page ("/"), never on the
   // default Auth.js page. Any sign-in flow Auth.js triggers redirects here.
   pages: { signIn: "/" },
   providers: [
     Google({
+      // Lets a client who signed up with email + password later "Connect
+      // Google" with the SAME email: the OAuth account links to their existing
+      // user row instead of erroring. Safe here because Google verifies the
+      // email; see the signup flow, which refuses admin-domain addresses.
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           // offline + consent guarantees a refresh_token on every sign-in,
@@ -51,10 +62,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
       },
     }),
+    // Clients (any non-cloudsheer.com domain) sign in with their email as the
+    // user id plus a password. Admin-domain emails are refused here and must
+    // use Google.
+    Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      authorize: async (creds) => {
+        const email = String(creds?.email ?? "").trim().toLowerCase();
+        const password = String(creds?.password ?? "");
+        if (!email || !password) return null;
+        if (isAdminEmail(email)) return null; // admins use Google
+        const user = await findUserByEmail(email);
+        if (!user?.passwordHash) return null;
+        const ok = await verifyPassword(password, user.passwordHash);
+        if (!ok) return null;
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      },
+    }),
   ],
   callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id;
+    // Carry the user id on the token (set on first sign-in for both providers)
+    // and expose it on the session, matching the previous database-session API.
+    jwt({ token, user }) {
+      if (user?.id) token.id = user.id;
+      return token;
+    },
+    session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.id as string | undefined) ?? token.sub ?? "";
+      }
       return session;
     },
   },

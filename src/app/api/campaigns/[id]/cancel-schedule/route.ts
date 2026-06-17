@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, recipients } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
+import { campaignScope } from "@/lib/scope";
 
 /**
  * Cancelling a scheduled campaign is now a pure DB operation: undispatched
@@ -20,18 +20,14 @@ export async function POST(
 
   const { id } = await params;
 
-  // Guard: only a scheduled campaign can be cancelled. Managers can cancel
-  // anyone's; everyone else only their own.
-  const admin = isAdminEmail(session.user.email);
+  // Guard: only a scheduled campaign can be cancelled. Admins can cancel any
+  // campaign; clients only those on their own domain.
+  const scope = await campaignScope(session.user);
   const [campaign] = await db
     .select({ id: campaigns.id })
     .from(campaigns)
     .where(
-      and(
-        eq(campaigns.id, id),
-        ...(admin ? [] : [eq(campaigns.userId, session.user.id)]),
-        eq(campaigns.status, "scheduled")
-      )
+      and(eq(campaigns.id, id), ...scope, eq(campaigns.status, "scheduled"))
     );
 
   if (!campaign) {

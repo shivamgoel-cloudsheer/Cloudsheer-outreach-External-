@@ -1,8 +1,8 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, inArray } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { campaigns, users } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
+import { visibleUserIds } from "@/lib/scope";
 import { getSender } from "@/lib/senders";
 import AnalyticsClient, { type CampaignListItem } from "./AnalyticsClient";
 
@@ -10,8 +10,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
   const session = await auth();
-  const userId = session!.user.id;
-  const admin = isAdminEmail(session!.user.email);
+  // Admins see all campaigns; clients see every campaign on their own domain.
+  const ids = await visibleUserIds(session!.user);
+  const showOwners = ids === null || ids.length > 1;
 
   const rows = await db
     .select({
@@ -24,12 +25,12 @@ export default async function AnalyticsPage() {
       userId: campaigns.userId,
     })
     .from(campaigns)
-    .where(admin ? undefined : eq(campaigns.userId, userId))
+    .where(ids === null ? undefined : inArray(campaigns.userId, ids))
     .orderBy(desc(campaigns.createdAt));
 
-  // Manager view: label each campaign with who created it.
+  // Label each campaign with who created it when more than one owner is shown.
   const ownerById = new Map<string, string>();
-  if (admin && rows.length > 0) {
+  if (showOwners && rows.length > 0) {
     const ownerIds = [...new Set(rows.map((r) => r.userId))];
     const owners = await db
       .select({ id: users.id, name: users.name, email: users.email })
@@ -50,7 +51,7 @@ export default async function AnalyticsPage() {
     total: r.total,
     sentCount: r.sentCount,
     createdAt: r.createdAt.toISOString(),
-    owner: admin ? ownerById.get(r.userId) ?? null : null,
+    owner: showOwners ? ownerById.get(r.userId) ?? null : null,
   }));
 
   return <AnalyticsClient campaigns={list} />;
