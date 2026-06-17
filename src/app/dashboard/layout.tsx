@@ -42,6 +42,12 @@ export default async function DashboardLayout({
                 Campaigns
               </Link>
               <Link
+                href="/dashboard/analytics"
+                className="text-slate-500 transition hover:text-slate-900"
+              >
+                Analytics
+              </Link>
+              <Link
                 href="/dashboard/senders"
                 className="text-slate-500 transition hover:text-slate-900"
               >

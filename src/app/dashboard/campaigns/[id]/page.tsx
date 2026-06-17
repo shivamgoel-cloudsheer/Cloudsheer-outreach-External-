@@ -13,6 +13,7 @@ import {
   Mail,
   MessageSquareReply,
   RefreshCw,
+  RotateCcw,
   Save,
   Trash2,
   TriangleAlert,
@@ -21,11 +22,13 @@ import {
 } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import { COUNTRY_OPTIONS } from "@/lib/geo";
+import { zonedTimeToUtc } from "@/lib/timezone";
 
 type Step = {
   id: string;
   stepNumber: number;
   delayDays: number;
+  scheduledAt: string | null;
   subjectTemplate: string;
   bodyTemplate: string;
 };
@@ -65,9 +68,19 @@ type CampaignStatusResponse = {
     openedAt: string | null;
     clickedAt: string | null;
     repliedAt: string | null;
+    replySnippet: string | null;
+    replySubject: string | null;
     error: string | null;
   }[];
   lastReplyCheckAt: string | null;
+};
+
+type ReplyView = {
+  recipientId: string;
+  email: string;
+  loading: boolean;
+  error?: string;
+  data?: { from: string; subject: string; date: string; body: string };
 };
 
 const ENGAGED = ["delivered", "opened", "clicked", "replied"];
@@ -96,10 +109,23 @@ export default function CampaignPage({
   // "" = use my (browser) timezone; otherwise a chosen country's IANA zone.
   const [windowTz, setWindowTz] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
+  const [replyView, setReplyView] = useState<ReplyView | null>(null);
   const [showAddStep, setShowAddStep] = useState(false);
   const [stepDelay, setStepDelay] = useState(3);
   const [stepSubject, setStepSubject] = useState("");
   const [stepBody, setStepBody] = useState("");
+  // "days" = N days after previous email; "date" = an exact date/time.
+  const [stepMode, setStepMode] = useState<"days" | "date">("days");
+  const [stepScheduledAt, setStepScheduledAt] = useState("");
+  // "" = my (browser) timezone; otherwise a chosen country's IANA zone.
+  const [stepTz, setStepTz] = useState("");
+  // Optional sheet re-upload to refresh recipients' personalization data.
+  const [stepSheetUrl, setStepSheetUrl] = useState("");
+  const [stepSheetTab, setStepSheetTab] = useState<string | null>(null);
+  const [stepSheetCols, setStepSheetCols] = useState<string[] | null>(null);
+  const [stepSelectedCols, setStepSelectedCols] = useState<string[]>([]);
+  const [stepSheetLoading, setStepSheetLoading] = useState(false);
+  const [stepSheetMsg, setStepSheetMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -295,6 +321,55 @@ export default function CampaignPage({
     }
   }
 
+  // Load the columns from a re-uploaded sheet so they can be picked for refresh.
+  async function loadStepSheet() {
+    if (!stepSheetUrl.trim()) return;
+    setStepSheetLoading(true);
+    setStepSheetMsg(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/sheets/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetUrl: stepSheetUrl.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to read sheet");
+      setStepSheetCols(json.headers as string[]);
+      setStepSelectedCols(json.headers as string[]);
+      setStepSheetTab(json.selectedTab ?? null);
+      setStepSheetMsg(`${json.totalRows} rows · pick the columns to refresh`);
+    } catch (e) {
+      setStepSheetCols(null);
+      setStepSheetMsg(e instanceof Error ? e.message : "Failed to read sheet");
+    } finally {
+      setStepSheetLoading(false);
+    }
+  }
+
+  function resetStepForm() {
+    setShowAddStep(false);
+    setStepSubject("");
+    setStepBody("");
+    setStepDelay(3);
+    setStepMode("days");
+    setStepScheduledAt("");
+    setStepTz("");
+    setStepSheetUrl("");
+    setStepSheetTab(null);
+    setStepSheetCols(null);
+    setStepSelectedCols([]);
+    setStepSheetMsg(null);
+  }
+
+  // The follow-up date in the chosen timezone, as a UTC ISO string. With "my
+  // timezone" the browser-local datetime is used directly.
+  function stepScheduledAtIso(): string {
+    if (!stepTz) return new Date(stepScheduledAt).toISOString();
+    const [date, time] = stepScheduledAt.split("T");
+    return (zonedTimeToUtc(date, time, stepTz) ?? new Date(stepScheduledAt)).toISOString();
+  }
+
   async function addStep() {
     setError(null);
     try {
@@ -305,17 +380,81 @@ export default function CampaignPage({
           delayDays: stepDelay,
           subjectTemplate: stepSubject,
           bodyTemplate: stepBody,
+          ...(stepMode === "date" && stepScheduledAt
+            ? { scheduledAt: stepScheduledAtIso() }
+            : {}),
+          ...(stepSheetUrl.trim() && stepSheetCols
+            ? {
+                sheetUrl: stepSheetUrl.trim(),
+                ...(stepSheetTab ? { sheetTab: stepSheetTab } : {}),
+                selectedColumns: stepSelectedCols,
+              }
+            : {}),
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to add step");
-      setShowAddStep(false);
-      setStepSubject("");
-      setStepBody("");
-      setStepDelay(3);
+      if (json.refreshed > 0) {
+        setNotice(`Follow-up added · refreshed ${json.refreshed} recipients`);
+      }
+      resetStepForm();
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add step");
+    }
+  }
+
+  // Open the reply viewer and load the full body from Gmail on demand.
+  async function viewReply(recipientId: string, email: string) {
+    setReplyView({ recipientId, email, loading: true });
+    try {
+      const res = await fetch(
+        `/api/campaigns/${id}/recipients/${recipientId}/reply`,
+        { cache: "no-store" }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to load reply");
+      setReplyView({ recipientId, email, loading: false, data: json });
+    } catch (e) {
+      setReplyView({
+        recipientId,
+        email,
+        loading: false,
+        error: e instanceof Error ? e.message : "Failed to load reply",
+      });
+    }
+  }
+
+  // Act on scheduled recipients: pull back to pending, or delete the mail.
+  async function recipientAction(ids: string[], action: "pending" | "delete") {
+    if (
+      action === "delete" &&
+      !window.confirm(
+        `Delete ${ids.length} scheduled email${ids.length === 1 ? "" : "s"}? This removes the recipient${ids.length === 1 ? "" : "s"} from the campaign.`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setSending(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/recipients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientIds: ids, action }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Action failed");
+      setNotice(
+        action === "pending"
+          ? `${json.updated} moved back to pending`
+          : `${json.deleted} scheduled email${json.deleted === 1 ? "" : "s"} deleted`
+      );
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -882,8 +1021,15 @@ export default function CampaignPage({
               >
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-sky-700">
-                    Step {s.stepNumber} · {s.delayDays} day
-                    {s.delayDays === 1 ? "" : "s"} after the previous email
+                    Step {s.stepNumber} ·{" "}
+                    {s.scheduledAt
+                      ? `on ${new Date(s.scheduledAt).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}`
+                      : `${s.delayDays} day${s.delayDays === 1 ? "" : "s"} after the previous email`}
                   </p>
                   <p className="mt-1 truncate text-sm text-slate-800">
                     {s.subjectTemplate}
@@ -906,20 +1052,70 @@ export default function CampaignPage({
 
         {showAddStep && (
           <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-slate-500">Send</label>
-              <input
-                type="number"
-                min={1}
-                max={30}
-                value={stepDelay}
-                onChange={(e) => setStepDelay(Number(e.target.value))}
-                className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
-              />
-              <label className="text-xs text-slate-500">
-                days after the previous email
-              </label>
+            {/* When to send: relative days OR an exact date/time */}
+            <div className="space-y-2">
+              <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-xs">
+                <button
+                  onClick={() => setStepMode("days")}
+                  className={`rounded-md px-2.5 py-1 transition ${
+                    stepMode === "days"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Days after previous
+                </button>
+                <button
+                  onClick={() => setStepMode("date")}
+                  className={`rounded-md px-2.5 py-1 transition ${
+                    stepMode === "date"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Specific date &amp; time
+                </button>
+              </div>
+              {stepMode === "days" ? (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-500">Send</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={stepDelay}
+                    onChange={(e) => setStepDelay(Number(e.target.value))}
+                    className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                  <label className="text-xs text-slate-500">
+                    days after the previous email
+                  </label>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-xs text-slate-500">Send on</label>
+                  <input
+                    type="datetime-local"
+                    value={stepScheduledAt}
+                    onChange={(e) => setStepScheduledAt(e.target.value)}
+                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                  <select
+                    value={stepTz}
+                    onChange={(e) => setStepTz(e.target.value)}
+                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                  >
+                    <option value="">My timezone</option>
+                    {COUNTRY_OPTIONS.map((c) => (
+                      <option key={c.timeZone} value={c.timeZone}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
+
             <input
               placeholder="Subject, e.g. Re: {{Subject}}"
               value={stepSubject}
@@ -932,16 +1128,79 @@ export default function CampaignPage({
               onChange={(e) => setStepBody(e.target.value)}
               className="min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-[13px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
             />
+
+            {/* Optional: refresh recipient data from a re-uploaded sheet */}
+            <details className="rounded-lg border border-slate-200 bg-white p-3">
+              <summary className="cursor-pointer text-xs font-medium text-slate-700">
+                Refresh contact data from a sheet (optional)
+              </summary>
+              <p className="mt-2 text-xs text-slate-500">
+                Re-read a sheet to update the same recipients&apos; details
+                (matched by email). It won&apos;t add new people.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <input
+                  placeholder="Google Sheet URL"
+                  value={stepSheetUrl}
+                  onChange={(e) => {
+                    setStepSheetUrl(e.target.value);
+                    setStepSheetCols(null);
+                  }}
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                />
+                <button
+                  onClick={loadStepSheet}
+                  disabled={!stepSheetUrl.trim() || stepSheetLoading}
+                  className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                >
+                  {stepSheetLoading ? "Loading..." : "Load columns"}
+                </button>
+              </div>
+              {stepSheetMsg && (
+                <p className="mt-1.5 text-xs text-slate-500">{stepSheetMsg}</p>
+              )}
+              {stepSheetCols && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {stepSheetCols.map((col) => {
+                    const on = stepSelectedCols.includes(col);
+                    return (
+                      <button
+                        key={col}
+                        onClick={() =>
+                          setStepSelectedCols((prev) =>
+                            prev.includes(col)
+                              ? prev.filter((c) => c !== col)
+                              : [...prev, col]
+                          )
+                        }
+                        className={`rounded-full px-2.5 py-0.5 text-xs ring-1 ring-inset transition ${
+                          on
+                            ? "bg-indigo-50 text-indigo-700 ring-indigo-200"
+                            : "bg-white text-slate-500 ring-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {col}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </details>
+
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowAddStep(false)}
+                onClick={resetStepForm}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={addStep}
-                disabled={!stepSubject.trim() || !stepBody.trim()}
+                disabled={
+                  !stepSubject.trim() ||
+                  !stepBody.trim() ||
+                  (stepMode === "date" && !stepScheduledAt)
+                }
                 className="rounded-lg bg-sky-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-40"
               >
                 Add step
@@ -986,6 +1245,38 @@ export default function CampaignPage({
         </span>
       </div>
 
+      {(() => {
+        const scheduledIds = visibleRecipients
+          .filter((r) => r.status === "scheduled")
+          .map((r) => r.id);
+        if (scheduledIds.length < 2) return null;
+        return (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+            <span>
+              {scheduledIds.length} scheduled email
+              {scheduledIds.length === 1 ? "" : "s"} shown
+            </span>
+            <span className="flex-1" />
+            <button
+              onClick={() => recipientAction(scheduledIds, "pending")}
+              disabled={sending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-40"
+            >
+              <RotateCcw size={13} />
+              All to pending
+            </button>
+            <button
+              onClick={() => recipientAction(scheduledIds, "delete")}
+              disabled={sending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+            >
+              <Trash2 size={13} />
+              Delete all
+            </button>
+          </div>
+        );
+      })()}
+
       <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500">
@@ -1003,6 +1294,7 @@ export default function CampaignPage({
               <th className="hidden px-4 py-3 font-medium md:table-cell">
                 Replied
               </th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1026,6 +1318,12 @@ export default function CampaignPage({
                       {r.error && (
                         <p className="mt-0.5 text-xs text-red-600">{r.error}</p>
                       )}
+                      {r.status === "replied" && r.replySnippet && (
+                        <p className="mt-1 line-clamp-2 max-w-md text-xs text-teal-700">
+                          <span className="font-medium">Reply: </span>
+                          {r.replySnippet}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -1043,12 +1341,46 @@ export default function CampaignPage({
                 <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
                   {r.repliedAt ? new Date(r.repliedAt).toLocaleString() : "-"}
                 </td>
+                <td className="px-4 py-3">
+                  {r.status === "scheduled" ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => recipientAction([r.id], "pending")}
+                        disabled={sending}
+                        title="Move back to pending (won't send until rescheduled)"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                      <button
+                        onClick={() => recipientAction([r.id], "delete")}
+                        disabled={sending}
+                        title="Delete this scheduled email"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ) : r.status === "replied" ? (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => viewReply(r.id, r.email)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-100"
+                      >
+                        <MessageSquareReply size={13} />
+                        View reply
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="block text-right text-slate-300">-</span>
+                  )}
+                </td>
               </tr>
             ))}
             {visibleRecipients.length === 0 && (
               <tr>
                 <td
-                  colSpan={campaign.hasVariantB ? 5 : 4}
+                  colSpan={campaign.hasVariantB ? 6 : 5}
                   className="px-4 py-10 text-center text-sm text-slate-500"
                 >
                   No recipients match this filter.
@@ -1058,6 +1390,62 @@ export default function CampaignPage({
           </tbody>
         </table>
       </div>
+
+      {replyView && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/30 p-4"
+          onClick={() => setReplyView(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                  <MessageSquareReply size={15} className="text-teal-600" />
+                  Reply
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {replyView.email}
+                </p>
+              </div>
+              <button
+                onClick={() => setReplyView(null)}
+                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                title="Close"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="mt-4">
+              {replyView.loading ? (
+                <div className="flex items-center gap-2 py-10 text-sm text-slate-500">
+                  <Loader2 size={15} className="animate-spin" />
+                  Loading reply
+                </div>
+              ) : replyView.error ? (
+                <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {replyView.error}
+                </p>
+              ) : replyView.data ? (
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    {replyView.data.subject || "(no subject)"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {replyView.data.from}
+                    {replyView.data.date ? ` · ${replyView.data.date}` : ""}
+                  </p>
+                  <div className="mt-3 max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
+                    {replyView.data.body || "(empty message)"}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
