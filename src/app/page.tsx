@@ -205,12 +205,20 @@ export default async function Home() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-slate-50 px-6 py-8">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 text-xs text-slate-500 sm:flex-row">
+        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 text-xs text-slate-500 sm:flex-row">
           <div className="flex items-center gap-2">
             <Logo />
             <span>Outreach</span>
           </div>
-          <p>A CloudSheer Consulting tool. Built for Google Workspace.</p>
+          <div className="flex items-center gap-5">
+            <a href="/privacy" className="transition hover:text-slate-900">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="transition hover:text-slate-900">
+              Terms
+            </a>
+            <p>A CloudSheer Consulting tool.</p>
+          </div>
         </div>
       </footer>
     </div>
