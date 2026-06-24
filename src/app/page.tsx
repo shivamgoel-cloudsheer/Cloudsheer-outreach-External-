@@ -70,7 +70,6 @@ export default async function Home() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
             <Logo />
-            <span className="text-sm font-medium text-slate-400">Outreach</span>
           </div>
           <Link
             href="#start"
@@ -173,7 +172,6 @@ export default async function Home() {
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 text-xs text-slate-500 sm:flex-row">
           <div className="flex items-center gap-2">
             <Logo />
-            <span>Outreach</span>
           </div>
           <div className="flex items-center gap-5">
             <a href="/privacy" className="transition hover:text-slate-900">
@@ -182,7 +180,7 @@ export default async function Home() {
             <a href="/terms" className="transition hover:text-slate-900">
               Terms
             </a>
-            <p>A CloudSheer Consulting tool.</p>
+            <p>Tool by CloudSheer Consulting.</p>
           </div>
         </div>
       </footer>

@@ -17,7 +17,6 @@ export default function LegalLayout({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3.5">
           <Link href="/" className="flex items-center gap-2">
             <Logo />
-            <span className="text-sm font-medium text-slate-400">Outreach</span>
           </Link>
           <Link
             href="/"
@@ -39,9 +38,8 @@ export default function LegalLayout({
         <div className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-3 text-xs text-slate-500 sm:flex-row">
           <div className="flex items-center gap-2">
             <Logo />
-            <span>Outreach</span>
           </div>
-          <p>A CloudSheer Consulting tool. Built for Google Workspace.</p>
+          <p>Tool by CloudSheer Consulting. Built for Google Workspace.</p>
         </div>
       </footer>
     </div>

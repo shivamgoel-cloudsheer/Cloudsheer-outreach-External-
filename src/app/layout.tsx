@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cloudsheer Outreach",
+  title: "Decipher OS",
   description:
-    "Email outreach campaigns from Google Sheets with open and click tracking",
+    "Send personalized email campaigns from your own Gmail, powered by your Google Sheets.",
 };
 
 export default function RootLayout({

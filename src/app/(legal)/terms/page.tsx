@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms and Conditions | Cloudsheer Outreach",
+  title: "Terms and Conditions | Decipher OS",
   description:
-    "The terms that govern your use of Cloudsheer Outreach, operated by CloudSheer Consulting.",
+    "The terms that govern your use of Decipher OS, operated by CloudSheer Consulting.",
 };
 
 const LAST_UPDATED = "June 17, 2026";
@@ -21,7 +21,7 @@ export default function TermsAndConditions() {
 
       <p>
         These Terms and Conditions (the &quot;Terms&quot;) govern your access to
-        and use of Cloudsheer Outreach (the &quot;Service&quot;), operated by
+        and use of Decipher OS (the &quot;Service&quot;), operated by
         CloudSheer Consulting (&quot;CloudSheer,&quot; &quot;we,&quot;
         &quot;us,&quot; or &quot;our&quot;), based in Brooklyn, New York. By
         signing in to or using the Service, you agree to these Terms. If you do
@@ -30,7 +30,7 @@ export default function TermsAndConditions() {
 
       <h2>1. The Service</h2>
       <p>
-        Cloudsheer Outreach lets you build personalized email campaigns from a
+        Decipher OS lets you build personalized email campaigns from a
         Google Sheet and send them through your own Gmail account, with
         scheduling, follow-ups, and reply and bounce tracking. We may add,
         change, or remove features at any time.

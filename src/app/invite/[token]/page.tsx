@@ -43,7 +43,6 @@ export default async function InvitePage({
     <main className="flex min-h-screen flex-1 flex-col items-center justify-center bg-slate-50 px-6 py-12">
       <div className="mb-6 flex items-center gap-2">
         <Logo size="lg" />
-        <span className="text-sm font-medium text-slate-400">Outreach</span>
       </div>
 
       {invalid || !invite ? (

@@ -1,18 +1,10 @@
-import Image from "next/image";
-
-// Full Cloudsheer brand lockup (cloud mark + wordmark). Sized by height; width
-// scales with the 762x252 source aspect ratio.
+// Decipher OS wordmark. Text placeholder until a real logo asset is supplied.
 export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
-  const cls = size === "lg" ? "h-11 w-auto" : "h-7 w-auto";
+  const cls = size === "lg" ? "text-2xl" : "text-lg";
   return (
-    <Image
-      src="/logo.png"
-      alt="Cloudsheer"
-      width={762}
-      height={252}
-      priority
-      className={cls}
-    />
+    <span className={`${cls} font-semibold tracking-tight text-slate-900`}>
+      Decipher <span className="text-indigo-600">OS</span>
+    </span>
   );
 }
 

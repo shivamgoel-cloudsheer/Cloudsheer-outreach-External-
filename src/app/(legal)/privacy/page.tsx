@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Cloudsheer Outreach",
+  title: "Privacy Policy | Decipher OS",
   description:
-    "How Cloudsheer Outreach collects, uses, stores, and protects your data, including data accessed through Google APIs.",
+    "How Decipher OS collects, uses, stores, and protects your data, including data accessed through Google APIs.",
 };
 
 const LAST_UPDATED = "June 17, 2026";
@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
       <p className="mt-2 text-sm text-slate-500">Last updated: {LAST_UPDATED}</p>
 
       <p>
-        Cloudsheer Outreach (the &quot;Service&quot;) is operated by CloudSheer
+        Decipher OS (the &quot;Service&quot;) is operated by CloudSheer
         Consulting (&quot;CloudSheer,&quot; &quot;we,&quot; &quot;us,&quot; or
         &quot;our&quot;), based in Brooklyn, New York. This Privacy Policy
         explains what information the Service collects, how we use and protect
@@ -96,7 +96,7 @@ export default function PrivacyPolicy() {
 
       <h2>Limited Use disclosure</h2>
       <p>
-        Cloudsheer Outreach&apos;s use and transfer of information received from
+        Decipher OS&apos;s use and transfer of information received from
         Google APIs to any other app will adhere to the{" "}
         <a
           href="https://developers.google.com/terms/api-services-user-data-policy"

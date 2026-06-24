@@ -70,9 +70,6 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-5">
             <Link href="/dashboard" className="flex items-center gap-2">
               <Logo />
-              <span className="text-sm font-medium text-slate-400">
-                Outreach
-              </span>
             </Link>
             <nav className="hidden items-center gap-4 text-sm sm:flex">
               {access.can.viewCampaigns && (
