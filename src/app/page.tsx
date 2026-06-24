@@ -101,8 +101,9 @@ export default async function Home() {
           </div>
           <p className="mt-5 flex items-center gap-1.5 text-xs text-slate-500">
             <ShieldCheck size={13} className="text-slate-400" />
-            Read-only access to your Google Sheets and permission to send from
-            your Gmail. Nothing else.
+            Access is limited to what the tool needs: reading and updating the
+            Google Sheet you pick, sending from your own Gmail, and reading your
+            inbox to detect replies. Nothing more.
           </p>
         </div>
       </section>
