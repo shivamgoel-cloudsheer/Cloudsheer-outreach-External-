@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms and Conditions | Decipher OS",
+  title: "Terms and Conditions",
   description:
     "The terms that govern your use of Decipher OS, operated by Cloudsheer Consulting.",
 };

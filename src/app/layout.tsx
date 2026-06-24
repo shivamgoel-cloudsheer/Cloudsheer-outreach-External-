@@ -12,10 +12,40 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const DESCRIPTION =
+  "Decipher OS turns a Google Sheet into a personalized email campaign sent from your own Gmail, with scheduling, follow-ups, and reply tracking built in.";
+
 export const metadata: Metadata = {
-  title: "Decipher OS",
-  description:
-    "Send personalized email campaigns from your own Gmail, powered by your Google Sheets.",
+  metadataBase: new URL("https://www.decipheros.com"),
+  title: {
+    default: "Decipher OS",
+    template: "%s | Decipher OS",
+  },
+  description: DESCRIPTION,
+  applicationName: "Decipher OS",
+  keywords: [
+    "Decipher OS",
+    "cold email",
+    "email outreach",
+    "Gmail outreach",
+    "Google Sheets email",
+    "drip campaigns",
+    "follow-up sequences",
+  ],
+  authors: [{ name: "Cloudsheer Consulting" }],
+  creator: "Cloudsheer Consulting",
+  openGraph: {
+    type: "website",
+    url: "https://www.decipheros.com",
+    siteName: "Decipher OS",
+    title: "Decipher OS",
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Decipher OS",
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

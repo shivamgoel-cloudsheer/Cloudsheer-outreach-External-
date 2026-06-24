@@ -1,9 +1,25 @@
-// Decipher OS wordmark. Text placeholder until a real logo asset is supplied.
+import Image from "next/image";
+
+// Decipher OS lockup: the orb mark in a dark tile next to the wordmark.
 export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
-  const cls = size === "lg" ? "text-2xl" : "text-lg";
+  const tile = size === "lg" ? "h-9 w-9" : "h-7 w-7";
+  const text = size === "lg" ? "text-2xl" : "text-lg";
   return (
-    <span className={`${cls} font-semibold tracking-tight text-slate-900`}>
-      Decipher <span className="text-indigo-600">OS</span>
+    <span className="inline-flex items-center gap-2">
+      <span
+        className={`relative ${tile} shrink-0 overflow-hidden rounded-lg bg-black ring-1 ring-slate-200`}
+      >
+        <Image
+          src="/orb.png"
+          alt="Decipher OS"
+          fill
+          sizes="36px"
+          className="object-contain p-0.5"
+        />
+      </span>
+      <span className={`${text} font-semibold tracking-tight text-slate-900`}>
+        Decipher <span className="text-indigo-600">OS</span>
+      </span>
     </span>
   );
 }

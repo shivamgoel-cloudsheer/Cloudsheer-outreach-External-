@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Decipher OS",
+  title: "Privacy Policy",
   description:
     "How Decipher OS collects, uses, stores, and protects your data, including data accessed through Google APIs.",
 };
