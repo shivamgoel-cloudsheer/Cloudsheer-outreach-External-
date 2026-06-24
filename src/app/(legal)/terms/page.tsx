@@ -144,7 +144,7 @@ export default function TermsAndConditions() {
       <h2>11. Contact us</h2>
       <p>
         Questions about these Terms can be sent to{" "}
-        <a href="mailto:solutions@cloudsheer.com">solutions@cloudsheer.com</a>.
+        <a href="mailto:tools@cloudsheer.com">tools@cloudsheer.com</a>.
       </p>
     </article>
   );

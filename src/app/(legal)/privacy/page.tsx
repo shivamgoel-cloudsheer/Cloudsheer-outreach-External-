@@ -162,7 +162,7 @@ export default function PrivacyPolicy() {
         <li>
           <strong>Request deletion</strong> of your account and associated data
           by emailing us at{" "}
-          <a href="mailto:solutions@cloudsheer.com">solutions@cloudsheer.com</a>.
+          <a href="mailto:tools@cloudsheer.com">tools@cloudsheer.com</a>.
           We will delete your stored data within 30 days, except where we are
           required to retain it by law.
         </li>
@@ -185,7 +185,7 @@ export default function PrivacyPolicy() {
       <p>
         If you have any questions about this Privacy Policy or how we handle your
         data, contact us at{" "}
-        <a href="mailto:solutions@cloudsheer.com">solutions@cloudsheer.com</a>.
+        <a href="mailto:tools@cloudsheer.com">tools@cloudsheer.com</a>.
       </p>
     </article>
   );
