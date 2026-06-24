@@ -2,7 +2,7 @@
  * Manager/admin access. A user is an admin if their email DOMAIN is in
  * ADMIN_DOMAINS (comma-separated, defaults to "cloudsheer.com") or their exact
  * email is in ADMIN_EMAILS (comma-separated). Admins can see and control EVERY
- * campaign - not just the ones they created - so CloudSheer staff manage the
+ * campaign - not just the ones they created - so Cloudsheer staff manage the
  * whole tool across every client mailbox from their own Google login. Everyone
  * else (clients) sees and controls only the campaigns they created.
  */

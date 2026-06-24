@@ -39,7 +39,7 @@ export default function LegalLayout({
           <div className="flex items-center gap-2">
             <Logo />
           </div>
-          <p>Tool by CloudSheer Consulting. Built for Google Workspace.</p>
+          <p>Tool by Cloudsheer Consulting. Built for Google Workspace.</p>
         </div>
       </footer>
     </div>

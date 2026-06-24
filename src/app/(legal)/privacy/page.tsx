@@ -20,12 +20,12 @@ export default function PrivacyPolicy() {
       <p className="mt-2 text-sm text-slate-500">Last updated: {LAST_UPDATED}</p>
 
       <p>
-        Decipher OS (the &quot;Service&quot;) is operated by CloudSheer
-        Consulting (&quot;CloudSheer,&quot; &quot;we,&quot; &quot;us,&quot; or
+        Decipher OS (the &quot;Service&quot;) is operated by Cloudsheer
+        Consulting (&quot;Cloudsheer,&quot; &quot;we,&quot; &quot;us,&quot; or
         &quot;our&quot;), based in Brooklyn, New York. This Privacy Policy
         explains what information the Service collects, how we use and protect
         it, and the choices you have. It applies to everyone who signs in to the
-        Service, whether you are a member of the CloudSheer team or a client we
+        Service, whether you are a member of the Cloudsheer team or a client we
         work with.
       </p>
       <p>
@@ -137,7 +137,7 @@ export default function PrivacyPolicy() {
         <li>
           <strong>Legal requirements.</strong> We may disclose information if
           required by law, regulation, or valid legal process, or to protect the
-          rights, safety, and security of CloudSheer, our users, or the public.
+          rights, safety, and security of Cloudsheer, our users, or the public.
         </li>
       </ul>
 

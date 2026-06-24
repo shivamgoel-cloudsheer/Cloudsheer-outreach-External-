@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Terms and Conditions | Decipher OS",
   description:
-    "The terms that govern your use of Decipher OS, operated by CloudSheer Consulting.",
+    "The terms that govern your use of Decipher OS, operated by Cloudsheer Consulting.",
 };
 
 const LAST_UPDATED = "June 17, 2026";
@@ -22,7 +22,7 @@ export default function TermsAndConditions() {
       <p>
         These Terms and Conditions (the &quot;Terms&quot;) govern your access to
         and use of Decipher OS (the &quot;Service&quot;), operated by
-        CloudSheer Consulting (&quot;CloudSheer,&quot; &quot;we,&quot;
+        Cloudsheer Consulting (&quot;Cloudsheer,&quot; &quot;we,&quot;
         &quot;us,&quot; or &quot;our&quot;), based in Brooklyn, New York. By
         signing in to or using the Service, you agree to these Terms. If you do
         not agree, do not use the Service.
@@ -109,7 +109,7 @@ export default function TermsAndConditions() {
 
       <h2>7. Limitation of liability</h2>
       <p>
-        To the fullest extent permitted by law, CloudSheer will not be liable for
+        To the fullest extent permitted by law, Cloudsheer will not be liable for
         any indirect, incidental, special, consequential, or punitive damages, or
         for any loss of profits, data, or goodwill, arising out of or related to
         your use of the Service. Our total liability for any claim relating to the

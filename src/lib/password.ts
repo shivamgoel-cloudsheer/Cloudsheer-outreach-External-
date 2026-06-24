@@ -48,7 +48,7 @@ export async function createPasswordUser(
 
   if (isAdminEmail(normalized)) {
     throw new PasswordSignupError(
-      "CloudSheer accounts sign in with Google, not a password."
+      "Cloudsheer accounts sign in with Google, not a password."
     );
   }
   if (password.length < MIN_PASSWORD_LENGTH) {

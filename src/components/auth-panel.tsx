@@ -180,7 +180,7 @@ export function AuthPanel({
         <span className="h-px flex-1 bg-slate-200" />
       </div>
 
-      {/* Google: for the CloudSheer team, and how clients connect a mailbox. */}
+      {/* Google: for the Cloudsheer team, and how clients connect a mailbox. */}
       <form action={signInWithGoogle}>
         <button
           type="submit"
@@ -191,7 +191,7 @@ export function AuthPanel({
         </button>
       </form>
       <p className="mt-2 text-center text-xs text-slate-400">
-        CloudSheer team signs in with Google.
+        Cloudsheer team signs in with Google.
       </p>
     </div>
   );

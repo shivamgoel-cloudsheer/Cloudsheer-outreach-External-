@@ -344,7 +344,7 @@ export default async function Home() {
             <a href="/terms" className="transition hover:text-slate-900">
               Terms
             </a>
-            <p>Tool by CloudSheer Consulting.</p>
+            <p>Tool by Cloudsheer Consulting.</p>
           </div>
         </div>
       </footer>

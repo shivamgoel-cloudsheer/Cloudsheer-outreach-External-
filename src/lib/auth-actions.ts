@@ -32,7 +32,7 @@ export async function loginWithPassword(
   }
   if (isAdminEmail(email)) {
     return {
-      error: "CloudSheer accounts sign in with Google. Use the Google button.",
+      error: "Cloudsheer accounts sign in with Google. Use the Google button.",
     };
   }
 
