@@ -232,6 +232,10 @@ export const recipients = pgTable(
     replySnippet: text("reply_snippet"),
     replySubject: text("reply_subject"),
     replyMessageId: text("reply_message_id"),
+    // AI segmentation of the reply intent (interested | meeting | later |
+    // not_interested | unsubscribe | wrong_person | out_of_office | neutral).
+    // Null until classified. Set by Claude Haiku at detection, or manually.
+    replyCategory: text("reply_category"),
     openedAt: timestamp("opened_at"),
     clickedAt: timestamp("clicked_at"),
     error: text("error"),

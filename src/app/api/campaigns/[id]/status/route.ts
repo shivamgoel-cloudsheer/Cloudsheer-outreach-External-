@@ -44,11 +44,13 @@ export async function GET(
         status: recipients.status,
         variant: recipients.variant,
         sequenceStep: recipients.sequenceStep,
+        lastEmailAt: recipients.lastEmailAt,
         openedAt: recipients.openedAt,
         clickedAt: recipients.clickedAt,
         repliedAt: recipients.repliedAt,
         replySnippet: recipients.replySnippet,
         replySubject: recipients.replySubject,
+        replyCategory: recipients.replyCategory,
         error: recipients.error,
       })
       .from(recipients)
