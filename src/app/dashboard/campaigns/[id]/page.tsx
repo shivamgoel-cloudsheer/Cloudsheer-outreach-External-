@@ -70,6 +70,7 @@ type CampaignStatusResponse = {
     repliedAt: string | null;
     replySnippet: string | null;
     replySubject: string | null;
+    replyCategory: string | null;
     error: string | null;
   }[];
   lastReplyCheckAt: string | null;
@@ -85,6 +86,33 @@ type ReplyView = {
 };
 
 const ENGAGED = ["delivered", "opened", "clicked", "replied"];
+
+// AI reply-segmentation categories (auto-tagged by Claude on reply detection;
+// manually overridable). Order + colors mirror the internal tool.
+const REPLY_CATEGORY_ORDER = [
+  "interested",
+  "meeting",
+  "later",
+  "not_interested",
+  "unsubscribe",
+  "wrong_person",
+  "out_of_office",
+  "neutral",
+] as const;
+
+const REPLY_CATEGORY_META: Record<string, { label: string; cls: string }> = {
+  interested: { label: "Interested", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+  meeting: { label: "Meeting request", cls: "bg-teal-50 text-teal-700 ring-teal-200" },
+  later: { label: "Not now / Later", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
+  not_interested: { label: "Not interested", cls: "bg-orange-50 text-orange-700 ring-orange-200" },
+  unsubscribe: { label: "Unsubscribe", cls: "bg-red-50 text-red-700 ring-red-200" },
+  wrong_person: { label: "Wrong person", cls: "bg-violet-50 text-violet-700 ring-violet-200" },
+  out_of_office: { label: "Out of office", cls: "bg-slate-100 text-slate-600 ring-slate-200" },
+  neutral: { label: "Neutral", cls: "bg-slate-100 text-slate-500 ring-slate-200" },
+  // Legacy fallback for rows tagged before the taxonomy change.
+  positive: { label: "Interested", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+  negative: { label: "Not interested", cls: "bg-orange-50 text-orange-700 ring-orange-200" },
+};
 
 export default function CampaignPage({
   params,
@@ -427,6 +455,28 @@ export default function CampaignPage({
   }
 
   // Act on scheduled recipients: pull back to pending, or delete the mail.
+  // Manually override a reply's AI segmentation tag.
+  async function setReplyCategory(recipientId: string, category: string) {
+    if (!category) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/recipients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientIds: [recipientId],
+          action: "category",
+          category,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to tag");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to tag");
+    }
+  }
+
   async function recipientAction(ids: string[], action: "pending" | "delete") {
     if (
       action === "delete" &&
@@ -1347,6 +1397,17 @@ export default function CampaignPage({
                 </td>
                 <td className="px-4 py-3">
                   <StatusChip status={r.status} />
+                  {r.status === "replied" && r.replyCategory && (
+                    <span
+                      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
+                        REPLY_CATEGORY_META[r.replyCategory]?.cls ??
+                        "bg-slate-100 text-slate-500 ring-slate-200"
+                      }`}
+                    >
+                      {REPLY_CATEGORY_META[r.replyCategory]?.label ??
+                        r.replyCategory}
+                    </span>
+                  )}
                 </td>
                 {campaign.hasVariantB && (
                   <td className="hidden px-4 py-3 text-xs text-slate-500 sm:table-cell">
@@ -1380,7 +1441,24 @@ export default function CampaignPage({
                       </button>
                     </div>
                   ) : r.status === "replied" ? (
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-end gap-2">
+                      {canEdit && (
+                        <select
+                          value={r.replyCategory ?? ""}
+                          onChange={(e) => setReplyCategory(r.id, e.target.value)}
+                          title="Reply category (auto-tagged by AI; override here)"
+                          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                        >
+                          <option value="" disabled>
+                            Tag...
+                          </option>
+                          {REPLY_CATEGORY_ORDER.map((c) => (
+                            <option key={c} value={c}>
+                              {REPLY_CATEGORY_META[c].label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         onClick={() => viewReply(r.id, r.email)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-100"
