@@ -2,7 +2,6 @@
 
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
-import { isAdminEmail } from "@/lib/admin";
 import {
   createPasswordUser,
   MIN_PASSWORD_LENGTH,
@@ -30,11 +29,9 @@ export async function loginWithPassword(
   if (!email || !password) {
     return { error: "Enter your email and password." };
   }
-  if (isAdminEmail(email)) {
-    return {
-      error: "Cloudsheer accounts sign in with Google. Use the Google button.",
-    };
-  }
+  // Admins normally sign in with Google, but an admin account that has been
+  // given a password (e.g. a review/test credential) may log in here too. The
+  // Credentials provider only accepts accounts that actually have a passwordHash.
 
   try {
     await signIn("credentials", { email, password, redirectTo: DASHBOARD });

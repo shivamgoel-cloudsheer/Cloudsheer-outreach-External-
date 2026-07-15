@@ -75,13 +75,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = String(creds?.email ?? "").trim().toLowerCase();
         const password = String(creds?.password ?? "");
         if (!email || !password) return null;
-        if (isAdminEmail(email)) return null; // admins use Google
+        // Password login is normally for clients (admins use Google), but an
+        // admin account that has explicitly been given a password (e.g. a
+        // review/test credential) may use it too. The passwordHash check below
+        // means ordinary admins - who have none - still can't log in this way.
         const user = await findUserByEmail(email);
         if (!user?.passwordHash) return null;
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
         // No role = removed from the workspace (or never provisioned); block.
-        if (!user.role) return null;
+        // Super-admins legitimately have no role, so exempt them.
+        if (!isAdminEmail(email) && !user.role) return null;
         return {
           id: user.id,
           email: user.email,
