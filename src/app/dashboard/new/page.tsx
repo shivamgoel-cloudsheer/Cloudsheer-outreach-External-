@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ExternalLink,
   FileSpreadsheet,
   Loader2,
   PencilLine,
@@ -330,40 +331,60 @@ export default function NewCampaignPage() {
           {/* Template: what the sheet should look like (hidden once loaded) */}
           {!preview && (
             <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
-              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-                Example format — your sheet should look like this
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="text-xs font-medium text-slate-500">
+                  Example format — your sheet should look like this
+                </span>
+                <a
+                  href="https://docs.google.com/spreadsheets/d/1j46uWnceSsSuqlkZhyOMxKn9Nm_F9MgTWHJj8Rrymag/copy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-xs font-medium text-sky-600 transition hover:bg-sky-50"
+                >
+                  <ExternalLink size={12} />
+                  Use this template
+                </a>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full whitespace-nowrap text-left text-xs">
                   <thead>
                     <tr className="text-slate-500">
-                      <th className="px-3 py-2 font-semibold">Email</th>
                       <th className="px-3 py-2 font-semibold">First Name</th>
-                      <th className="px-3 py-2 font-semibold">Company</th>
-                      <th className="px-3 py-2 font-semibold">Title</th>
+                      <th className="px-3 py-2 font-semibold">Last Name</th>
+                      <th className="px-3 py-2 font-semibold">Email ID</th>
+                      <th className="px-3 py-2 font-semibold">Email 1 Subject</th>
+                      <th className="px-3 py-2 font-semibold">Email 1 Body</th>
+                      <th className="px-3 py-2 font-semibold">Email 2 Subject</th>
+                      <th className="px-3 py-2 font-semibold">Email 2 Body</th>
                     </tr>
                   </thead>
                   <tbody className="text-slate-700">
                     <tr className="border-t border-slate-100">
-                      <td className="px-3 py-2">jane@acme.com</td>
                       <td className="px-3 py-2">Jane</td>
-                      <td className="px-3 py-2">Acme Inc</td>
-                      <td className="px-3 py-2">Head of Sales</td>
+                      <td className="px-3 py-2">Doe</td>
+                      <td className="px-3 py-2">jane@acme.com</td>
+                      <td className="px-3 py-2">{"Quick question, {{First Name}}"}</td>
+                      <td className="px-3 py-2">{"Hi {{First Name}}, I noticed..."}</td>
+                      <td className="px-3 py-2">Following up</td>
+                      <td className="px-3 py-2">{"Just circling back, {{First Name}}"}</td>
                     </tr>
                     <tr className="border-t border-slate-100">
-                      <td className="px-3 py-2">sam@globex.com</td>
                       <td className="px-3 py-2">Sam</td>
-                      <td className="px-3 py-2">Globex</td>
-                      <td className="px-3 py-2">Founder</td>
+                      <td className="px-3 py-2">Lee</td>
+                      <td className="px-3 py-2">sam@globex.com</td>
+                      <td className="px-3 py-2">{"Idea for {{Last Name}}"}</td>
+                      <td className="px-3 py-2">{"Hi Sam, quick idea..."}</td>
+                      <td className="px-3 py-2">Re: Idea</td>
+                      <td className="px-3 py-2">Bumping this up</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <p className="border-t border-slate-100 bg-white px-3 py-2 text-xs text-slate-400">
-                The{" "}
-                <span className="font-medium text-slate-600">Email</span> column
-                is required. Every other column becomes a placeholder you can
-                insert in your message, e.g.{" "}
+                An email column (e.g.{" "}
+                <span className="font-medium text-slate-600">Email ID</span>) is
+                required. Every other column becomes a placeholder you can insert
+                in your message, e.g.{" "}
                 <code className="rounded bg-slate-100 px-1 text-slate-600">
                   {"{{First Name}}"}
                 </code>
