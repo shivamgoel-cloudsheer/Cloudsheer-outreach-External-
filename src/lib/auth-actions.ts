@@ -14,10 +14,6 @@ import {
 export type AuthState = { error?: string } | undefined;
 
 const DASHBOARD = "/dashboard";
-// After a password login we route through the Google consent screen: the app
-// needs Gmail/Sheets access to work, and this guarantees the OAuth consent
-// flow is presented even when signing in with email + password.
-const CONNECT = "/connect";
 
 function emailField(formData: FormData): string {
   return String(formData.get("email") ?? "").trim().toLowerCase();
@@ -38,7 +34,7 @@ export async function loginWithPassword(
   // Credentials provider only accepts accounts that actually have a passwordHash.
 
   try {
-    await signIn("credentials", { email, password, redirectTo: CONNECT });
+    await signIn("credentials", { email, password, redirectTo: DASHBOARD });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Wrong email or password." };
@@ -74,7 +70,7 @@ export async function signupWithPassword(
   }
 
   try {
-    await signIn("credentials", { email, password, redirectTo: CONNECT });
+    await signIn("credentials", { email, password, redirectTo: DASHBOARD });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Account created - please log in." };

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     "How Decipher OS collects, uses, stores, and protects your data, including data accessed through Google APIs.",
 };
 
-const LAST_UPDATED = "June 17, 2026";
+const LAST_UPDATED = "July 16, 2026";
 
 export default function PrivacyPolicy() {
   return (
@@ -56,7 +56,12 @@ export default function PrivacyPolicy() {
           <strong>Gmail data.</strong> With your permission, we send the
           campaign emails you compose through your own Gmail account, and we read
           message metadata and content in your mailbox solely to detect replies
-          and bounces to those campaigns.
+          and bounces to those campaigns. When a reply is detected, its subject
+          and text are analyzed to categorize the reply&apos;s intent (for
+          example &quot;interested,&quot; &quot;meeting request,&quot; or
+          &quot;unsubscribe&quot;) so we can show you reply segmentation and
+          analytics. See &quot;How we share information&quot; below for the AI
+          provider involved in this step.
         </li>
         <li>
           <strong>Campaign data.</strong> We store the campaigns you create,
@@ -84,8 +89,10 @@ export default function PrivacyPolicy() {
         </li>
         <li>
           <strong>Gmail read (gmail.readonly).</strong> To detect when a
-          recipient replies or a message bounces, so the Service can stop
-          following up and report the result to you.
+          recipient replies or a message bounces (so the Service can stop
+          following up), to let you read replies in the app, and to categorize
+          each reply&apos;s intent for your campaign analytics and reply
+          segmentation.
         </li>
       </ul>
       <p>
@@ -124,10 +131,14 @@ export default function PrivacyPolicy() {
       </p>
       <ul>
         <li>
-          <strong>Service providers.</strong> We use trusted infrastructure
-          providers to run the Service, including Vercel (application hosting)
-          and Neon (database hosting). These providers process data only on our
-          instructions and only to operate the Service.
+          <strong>Service providers.</strong> We use trusted providers to run
+          the Service, including Vercel (application hosting), Neon (database
+          hosting), and Anthropic (AI processing). Anthropic&apos;s Claude models
+          process the subject and text of detected replies solely to categorize
+          each reply&apos;s intent for your analytics; this content is processed
+          transiently on our behalf and is not used to train models, not sold,
+          and not used for advertising. All these providers process data only on
+          our instructions and only to operate the Service.
         </li>
         <li>
           <strong>Google APIs.</strong> Sending email and reading sheet and
