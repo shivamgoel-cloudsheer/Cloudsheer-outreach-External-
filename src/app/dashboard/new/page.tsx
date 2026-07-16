@@ -327,6 +327,51 @@ export default function NewCampaignPage() {
             </button>
           </div>
 
+          {/* Template: what the sheet should look like (hidden once loaded) */}
+          {!preview && (
+            <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+                Example format — your sheet should look like this
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-slate-500">
+                      <th className="px-3 py-2 font-semibold">Email</th>
+                      <th className="px-3 py-2 font-semibold">First Name</th>
+                      <th className="px-3 py-2 font-semibold">Company</th>
+                      <th className="px-3 py-2 font-semibold">Title</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-slate-700">
+                    <tr className="border-t border-slate-100">
+                      <td className="px-3 py-2">jane@acme.com</td>
+                      <td className="px-3 py-2">Jane</td>
+                      <td className="px-3 py-2">Acme Inc</td>
+                      <td className="px-3 py-2">Head of Sales</td>
+                    </tr>
+                    <tr className="border-t border-slate-100">
+                      <td className="px-3 py-2">sam@globex.com</td>
+                      <td className="px-3 py-2">Sam</td>
+                      <td className="px-3 py-2">Globex</td>
+                      <td className="px-3 py-2">Founder</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="border-t border-slate-100 bg-white px-3 py-2 text-xs text-slate-400">
+                The{" "}
+                <span className="font-medium text-slate-600">Email</span> column
+                is required. Every other column becomes a placeholder you can
+                insert in your message, e.g.{" "}
+                <code className="rounded bg-slate-100 px-1 text-slate-600">
+                  {"{{First Name}}"}
+                </code>
+                .
+              </p>
+            </div>
+          )}
+
           {preview && (
             <div className="mt-5">
               <div className="flex items-center gap-2 text-sm">
