@@ -5,6 +5,20 @@ export type SheetData = {
   emailColumn: string | null;
 };
 
+/**
+ * The app has no grant for this spreadsheet yet. Under the per-file
+ * `drive.file` scope Google returns 403 (denied) or 404 (hidden) for any file
+ * the user hasn't handed over through the Google Picker, so both mean the same
+ * thing: ask the user to pick the file. Callers turn this into a "needs picker"
+ * response instead of a hard error.
+ */
+export class SheetAccessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SheetAccessError";
+  }
+}
+
 /** Extracts the spreadsheet ID from a pasted Google Sheets URL (or accepts a bare ID). */
 export function parseSheetUrl(input: string): string | null {
   const trimmed = input.trim();
@@ -46,12 +60,11 @@ export async function fetchSheetTabs(
     { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
   );
   if (!res.ok) {
-    if (res.status === 403) {
-      throw new Error(
-        "Google denied access to this sheet. Make sure you own it or it is shared with your account."
+    if (res.status === 403 || res.status === 404) {
+      throw new SheetAccessError(
+        "This sheet hasn't been shared with the app yet. Select it to continue."
       );
     }
-    if (res.status === 404) throw new Error("Sheet not found. Check the URL.");
     throw new Error(`Sheets API error ${res.status}`);
   }
   const data = (await res.json()) as {
@@ -83,13 +96,10 @@ export async function fetchSheetRows(
 
   if (!response.ok) {
     const body = await response.text();
-    if (response.status === 403) {
-      throw new Error(
-        "Google denied access to this sheet. Make sure you own it or it is shared with your account."
+    if (response.status === 403 || response.status === 404) {
+      throw new SheetAccessError(
+        "This sheet hasn't been shared with the app yet. Select it to continue."
       );
-    }
-    if (response.status === 404) {
-      throw new Error("Sheet not found. Check the URL.");
     }
     throw new Error(`Sheets API error ${response.status}: ${body.slice(0, 300)}`);
   }
@@ -153,9 +163,9 @@ export async function writeStatusColumn(
     { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
   );
   if (!headerRes.ok) {
-    if (headerRes.status === 403) {
-      throw new Error(
-        "No write access to the sheet. Sign out and sign in again to grant it."
+    if (headerRes.status === 403 || headerRes.status === 404) {
+      throw new SheetAccessError(
+        "No write access to this sheet - it needs to be re-selected in the app."
       );
     }
     throw new Error(`Sheets API error ${headerRes.status}`);
@@ -196,9 +206,9 @@ export async function writeStatusColumn(
   );
 
   if (!writeRes.ok) {
-    if (writeRes.status === 403) {
-      throw new Error(
-        "No write access to the sheet. Sign out and sign in again to grant it."
+    if (writeRes.status === 403 || writeRes.status === 404) {
+      throw new SheetAccessError(
+        "No write access to this sheet - it needs to be re-selected in the app."
       );
     }
     const body = await writeRes.text();

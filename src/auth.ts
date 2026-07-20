@@ -25,8 +25,11 @@ declare module "next-auth" {
   }
 }
 
-// Write access so campaign status can be synced back into the sheet
-export const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+// Per-file Drive access: the user hands over one spreadsheet at a time through
+// the Google Picker, and we get read + write on just that file (enough to read
+// contacts and sync campaign status back). Replaces the far broader
+// .../auth/spreadsheets, which granted access to every sheet the user owns.
+export const SHEETS_SCOPE = "https://www.googleapis.com/auth/drive.file";
 // Read-only inbox access for reply detection
 export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 // Send-as-the-user access; emails go out through the sender's own mailbox

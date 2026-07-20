@@ -17,7 +17,7 @@ import {
   getValidAccessToken,
   hasSendScope,
 } from "@/lib/google";
-import { writeStatusColumn } from "@/lib/sheets";
+import { SheetAccessError, writeStatusColumn } from "@/lib/sheets";
 import {
   computeStaggeredTimes,
   computeStaggeredTimesByZone,
@@ -501,19 +501,32 @@ export async function processUser(userId: string): Promise<ProcessResult> {
         );
       if (rows.length === 0) continue;
 
-      await writeStatusColumn(
-        ownerToken,
-        campaign.sheetId,
-        rows.map((r) => ({
-          row: r.sheetRow!,
-          status:
-            r.sequenceStep > 0
-              ? `${r.status} (step ${r.sequenceStep})`
-              : r.status,
-        })),
-        campaign.sheetTab
-      );
-      result.sheetsSynced++;
+      try {
+        await writeStatusColumn(
+          ownerToken,
+          campaign.sheetId,
+          rows.map((r) => ({
+            row: r.sheetRow!,
+            status:
+              r.sequenceStep > 0
+                ? `${r.status} (step ${r.sequenceStep})`
+                : r.status,
+          })),
+          campaign.sheetTab
+        );
+        result.sheetsSynced++;
+      } catch (e) {
+        // Under the per-file drive.file scope a sheet connected before the
+        // switch has no grant yet. Skip its write-back and keep going - a
+        // missing status sync must never stop sending or block other campaigns.
+        if (e instanceof SheetAccessError) {
+          result.errors.push(
+            "Status write-back skipped - a campaign's sheet needs to be re-selected in the app."
+          );
+          continue;
+        }
+        throw e;
+      }
     }
   } catch (e) {
     result.errors.push(e instanceof Error ? e.message : "Sheet sync failed");

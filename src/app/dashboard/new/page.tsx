@@ -15,6 +15,15 @@ import {
 } from "lucide-react";
 import { renderTemplate } from "@/lib/template";
 import { lintContent } from "@/lib/linter";
+import { pickSpreadsheet } from "@/lib/picker";
+
+/** Spreadsheet id from a pasted Sheets URL (or a bare id). Mirrors parseSheetUrl. */
+function sheetIdFromUrl(input: string): string | null {
+  const trimmed = input.trim();
+  const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) return match[1];
+  return /^[a-zA-Z0-9-_]{20,}$/.test(trimmed) ? trimmed : null;
+}
 
 type Preview = {
   sheetId: string;
@@ -160,15 +169,43 @@ export default function NewCampaignPage() {
     [subject, body]
   );
 
-  async function loadSheet(tab?: string | null) {
+  // Explicit "browse my Drive" entry point, for users without a link handy.
+  async function chooseFromDrive() {
+    setError(null);
+    try {
+      const pickedId = await pickSpreadsheet(sheetIdFromUrl(sheetUrl));
+      if (!pickedId) return;
+      setSheetUrl(pickedId);
+      await loadSheet(null, pickedId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not open Google Drive");
+    }
+  }
+
+  async function loadSheet(tab?: string | null, overrideUrl?: string) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/sheets/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetUrl, ...(tab ? { sheetTab: tab } : {}) }),
-      });
+      const source = overrideUrl ?? sheetUrl;
+      const request = (url: string) =>
+        fetch("/api/sheets/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheetUrl: url, ...(tab ? { sheetTab: tab } : {}) }),
+        });
+
+      let res = await request(source);
+
+      // 403 = this sheet hasn't been handed to the app yet (per-file drive.file
+      // scope). Open the Picker on that exact file so the user can grant it,
+      // then retry. Sheets granted earlier load straight through with no popup.
+      if (res.status === 403) {
+        const pickedId = await pickSpreadsheet(sheetIdFromUrl(source));
+        if (!pickedId) return; // cancelled - leave the form untouched
+        setSheetUrl(pickedId);
+        res = await request(pickedId);
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load sheet");
       setPreview(data);
@@ -325,6 +362,16 @@ export default function NewCampaignPage() {
             >
               {loading && <Loader2 size={14} className="animate-spin" />}
               {loading ? "Loading" : preview ? "Reload" : "Load sheet"}
+            </button>
+            <button
+              type="button"
+              onClick={chooseFromDrive}
+              disabled={loading}
+              title="Browse your Google Drive"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              <FileSpreadsheet size={14} />
+              Choose from Drive
             </button>
           </div>
 

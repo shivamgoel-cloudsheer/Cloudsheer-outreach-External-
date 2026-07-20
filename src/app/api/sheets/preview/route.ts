@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getValidAccessToken } from "@/lib/google";
-import { fetchSheetRows, fetchSheetTabs, parseSheetUrl } from "@/lib/sheets";
+import {
+  fetchSheetRows,
+  fetchSheetTabs,
+  parseSheetUrl,
+  SheetAccessError,
+} from "@/lib/sheets";
 import { getAccess, forbidden } from "@/lib/roles";
 
 const bodySchema = z.object({
@@ -48,6 +53,14 @@ export async function POST(request: Request) {
       sampleRows: sheet.rows.slice(0, 5),
     });
   } catch (error) {
+    // Not granted yet under the per-file drive.file scope: tell the client to
+    // open the Google Picker so the user can hand over this specific sheet.
+    if (error instanceof SheetAccessError) {
+      return Response.json(
+        { error: error.message, needsPicker: true },
+        { status: 403 }
+      );
+    }
     return Response.json(
       { error: error instanceof Error ? error.message : "Failed to read sheet" },
       { status: 502 }
